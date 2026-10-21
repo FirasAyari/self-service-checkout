@@ -25,7 +25,7 @@ This product evaluation defines measurable release gates for the checkout demo a
 | EVAL-REG-05 | The documented Unix development entry point starts both services and releases them after the smoke. | `node scripts/dev-smoke.mjs` in the Ubuntu CI job. | The API health endpoint and Vite root both return success, and the smoke process group is stopped when the check ends. |
 | EVAL-REG-06 | The published Docker image works with production defaults and persistent order state. | `node scripts/docker-smoke.mjs` in the frontend CI job. | Packaged assets load, oversized requests receive 413, production forces simulated approval, and the same order is replayed after a container restart. |
 
-For payment, reservation, retry, and unknown-outcome regressions, release promotion requires three consecutive successful CI runs (`pass^3`). As of 2026-10-21, the latest recorded Actions run [39660811144](https://github.com/FirasAyari/self-service-checkout/actions/runs/39660811144) passed once on `c7b2bca` (`pass@1`); it predates the current local edits and does not satisfy the gate. Record later successful CI runs here before treating the stability gate as met.
+For payment, reservation, retry, and unknown-outcome regressions, release promotion requires three consecutive successful CI runs (`pass^3`). At this evidence update on 2026-10-21, run [39660811144](https://github.com/FirasAyari/self-service-checkout/actions/runs/39660811144) passed on `c7b2bca`, followed by run [39663802277](https://github.com/FirasAyari/self-service-checkout/actions/runs/39663802277) on `c81ab4c`; both passed all jobs (`pass@2`). The latter validated the code and workflow changes.
 
 ## Human and environment gates
 
