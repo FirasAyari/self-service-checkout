@@ -1,54 +1,82 @@
 # Goodtable self-service checkout
 
+[![CI](https://github.com/FirasAyari/self-service-checkout/actions/workflows/ci.yml/badge.svg)](https://github.com/FirasAyari/self-service-checkout/actions/workflows/ci.yml)
+
 A tablet-friendly checkout demo for a small lunch counter. The React client calls a .NET 10 API; the API owns menu prices, quotes, stock reservations, order state, and pickup numbers. Outcomes are simulated. The checkout collects no payment details and never contacts a payment provider.
 
-## Run locally
+## Run locally on Windows, macOS, or Linux
 
-Requirements: .NET 10 SDK, Node.js 22.12 or newer, npm, and GNU Make for the one-command workflow. The repository's `global.json` selects the .NET 10 SDK. On Windows, `scripts/dotnet.mjs` prefers the user-local SDK under `%USERPROFILE%\.dotnet` when available.
+Requirements: .NET 10 SDK, Node.js 22.14 or later, and npm. GNU Make is optional. The repository's `global.json` selects .NET SDK 10.0.100 with feature-band roll-forward. The commands below use the repository wrapper so Windows can use the user-local SDK when the system `dotnet` does not meet `global.json`.
 
-```sh
-make setup
-make dev
+From the repository root, restore the .NET tools and solution, install the browser client dependencies, then build both applications:
+
+```powershell
+node scripts/dotnet.mjs tool restore
+node scripts/dotnet.mjs restore backend/SelfServiceCheckout.slnx
+npm ci --prefix frontend
+node scripts/dotnet.mjs build backend/SelfServiceCheckout.slnx --configuration Release
+npm run build --prefix frontend
 ```
 
-Open [http://127.0.0.1:5173](http://127.0.0.1:5173). The dev command starts the API and Vite client together; Vite proxies `/api` to `http://127.0.0.1:5080`. The API creates `data/checkout.db` in the repository root.
+Start the API and React development server together:
 
-Without Make, run these commands from PowerShell or another shell:
-
-```sh
-npm --prefix frontend ci
-npm --prefix frontend run dev
+```powershell
+npm run dev --prefix frontend
 ```
 
-The .NET solution is in `backend/SelfServiceCheckout.slnx`, and the React app is in `frontend/`. The equivalent setup/build/test commands are `node scripts/dotnet.mjs tool restore`, `node scripts/dotnet.mjs restore backend/SelfServiceCheckout.slnx`, `npm --prefix frontend ci`, then `npm --prefix frontend run build` followed by `node scripts/dotnet.mjs build backend/SelfServiceCheckout.slnx --configuration Release`. Run `node scripts/run-tests.mjs` for configured test suites and `node scripts/traceability.mjs --strict` for the AC gate.
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). The API listens on `http://localhost:5080`; Vite proxies `/api` requests there. Readiness is available at `http://localhost:5080/healthz`. The API creates `data/checkout.db` in the repository root. Stop both processes with Ctrl+C.
 
-The API host uses the repository's SDK wrapper when run by Make; the frontend helper also prefers the user-local .NET SDK. Build the frontend before publishing the API so `frontend/dist` can be copied into the published `wwwroot`.
+To run only the API, use this command instead of the combined development command:
+
+```sh
+node scripts/dotnet.mjs run --project backend/src/SelfServiceCheckout/SelfServiceCheckout/SelfServiceCheckout.csproj --launch-profile http
+```
+
+## Run tests and checks
+
+Run the backend test projects, React unit tests, delivery checks, and architecture boundary checks:
+
+```powershell
+node scripts/run-tests.mjs
+```
+
+Run the frontend tests alone or build the production frontend bundle:
+
+```powershell
+npm test --prefix frontend
+npm run build --prefix frontend
+```
+
+Run checkout browser journeys and the ASP.NET production-host browser check. Install Chromium once if Playwright asks for it:
+
+```powershell
+npx --prefix frontend playwright install chromium
+node scripts/run-e2e.mjs
+```
+
+Check acceptance-criterion test tags:
+
+```powershell
+node scripts/traceability.mjs --strict
+```
+
+If you have GNU Make, `make setup` runs the same .NET tool restore, solution restore, and frontend dependency installation steps. GNU Make is optional and is not required for local setup or verification.
 
 ## Run with Docker
 
-Install Docker Desktop (Windows/macOS) or Docker Engine with the Compose plugin (Linux), then run:
-
-On Windows, Docker Desktop currently requires Windows 10 22H2 (build 19045) or a supported Windows 11 release; its WSL backend requires WSL 2.1.5 or newer. See [Docker's Windows requirements](https://docs.docker.com/desktop/setup/install/windows-install/).
+With Docker Compose installed, run:
 
 ```sh
 docker compose up --build
 ```
 
-Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The image builds the React app and serves it from the ASP.NET Core host. SQLite data persists in the `checkout-data` Docker volume; `docker compose down` keeps that data, while `docker compose down --volumes` removes it. The container runs as a non-root user and uses simulated approval only; it does not connect to a payment provider.
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The image builds the React app and serves it from the ASP.NET Core host. SQLite data persists in the `checkout-data` Docker volume. The container runs as a non-root user and uses simulated approval only; it does not connect to a payment provider.
 
-Run `make docker-smoke` to build an isolated Compose project, complete a simulated order, restart the container, and confirm the same order remains available. The smoke check removes only its own temporary volume.
+Docker Compose is included, but Docker was unavailable in the environment used to prepare this submission, so the container path has not been run or verified here. When Docker is available, the `docker compose up --build` command above is the documented start command; the `checkout-data` volume persists local demo data.
 
 ## Build and verification
 
-```sh
-make build    # production web bundle and .NET Release build
-make test     # runs configured .NET/web test suites; reports when none exist
-make e2e      # runs checkout E2E plus the ASP.NET Production-host browser check
-make trace    # strict AC-* test-ID coverage check
-make check    # types, lint, builds, tests, and strict traceability
-```
-
-Vitest and Playwright/axe suites cover the current acceptance criteria. The API's OpenAPI contract is committed at [openapi.v1.json](backend/tests/SelfServiceCheckout.Api.Tests/Contracts/openapi.v1.json); `make api-snapshot` refreshes it and regenerates browser DTO types, while `make check` detects drift. Install Playwright Chromium once with `npx playwright install chromium` from `frontend/` when running browser tests locally. `make trace` is intentionally strict for required criteria: it reports documented deviations separately and fails when a required criterion lacks an AC-tagged test. See [the live trace table](docs/traceability.md) for current gaps and [the scenario catalog](docs/scenarios.md) for planned behavior.
+Vitest and Playwright/axe suites cover the current acceptance criteria. The API's OpenAPI contract is committed at [openapi.v1.json](backend/tests/SelfServiceCheckout.Api.Tests/Contracts/openapi.v1.json). The strict trace command reports documented deviations separately and fails when a required criterion lacks an AC-tagged test. See [the live trace table](docs/traceability.md) for current gaps and [the scenario catalog](docs/scenarios.md) for planned behavior.
 
 ## Checkout demo
 

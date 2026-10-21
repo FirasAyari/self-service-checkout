@@ -19,7 +19,10 @@ test('AC-D1 setup and development entry points are wired to the API and frontend
   ])
   const webPackage = JSON.parse(webPackageSource)
 
-  assert.match(readme, /make setup[\s\S]*make dev/)
+  assert.match(readme, /node scripts\/dotnet\.mjs tool restore[\s\S]*node scripts\/dotnet\.mjs restore backend\/SelfServiceCheckout\.slnx[\s\S]*npm ci --prefix frontend/)
+  assert.match(readme, /npm run dev --prefix frontend[\s\S]*127\.0\.0\.1:5173[\s\S]*localhost:5080/)
+  assert.match(readme, /If you have GNU Make, `make setup`[\s\S]*optional/)
+  assert.doesNotMatch(readme, /GNU Make for the one-command workflow/)
   assert.match(makefile, /setup:[\s\S]*?dotnet\.mjs tool restore[\s\S]*?dotnet\.mjs restore[\s\S]*?npm --prefix frontend ci/)
   assert.match(makefile, /dev:[\s\S]*?npm --prefix frontend run dev/)
   assert.match(webPackage.scripts.dev, /run-api\.mjs/)
@@ -78,7 +81,9 @@ test('AC-D1 the container smoke completes an order and verifies its identity aft
   assert.match(smoke, /adminProbe\.status !== 404/)
   assert.match(smoke, /menuImageFiles\.length !== 12/)
   assert.match(makefile, /docker-smoke:[\s\S]*?scripts\/docker-smoke\.mjs/)
-  assert.match(readme, /make docker-smoke[\s\S]*restart the container/)
+  assert.match(readme, /docker compose up --build/)
+  assert.match(readme, /Docker Compose is included[\s\S]*not been run or verified here/)
+  assert.doesNotMatch(readme, /make docker-smoke/)
 })
 
 test('AC-D2 documented verification targets invoke the checks CI runs', async () => {
@@ -91,9 +96,14 @@ test('AC-D2 documented verification targets invoke the checks CI runs', async ()
   const packageJson = JSON.parse(packageSource)
 
   for (const target of ['build', 'test', 'e2e', 'check', 'trace']) {
-    assert.match(readme, new RegExp(`make ${target}`))
     assert.match(makefile, new RegExp(`^${target}:`, 'm'))
   }
+  assert.match(readme, /node scripts\/run-tests\.mjs/)
+  assert.match(readme, /npm test --prefix frontend/)
+  assert.match(readme, /npm run build --prefix frontend/)
+  assert.match(readme, /node scripts\/run-e2e\.mjs/)
+  assert.match(readme, /node scripts\/traceability\.mjs --strict/)
+  assert.doesNotMatch(readme, /make (?:dev|build|test|e2e|check|trace)\b/)
   assert.match(makefile, /test:[\s\S]*?scripts\/run-tests\.mjs/)
   assert.match(makefile, /e2e:[\s\S]*?scripts\/run-e2e\.mjs/)
   assert.match(makefile, /trace:[\s\S]*?traceability\.mjs --strict/)
