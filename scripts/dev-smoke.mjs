@@ -46,7 +46,7 @@ async function stop() {
 }
 
 try {
-  const deadline = Date.now() + 30_000
+  const deadline = Date.now() + 90_000
   let apiReady = false
   let webReady = false
   while (Date.now() < deadline && !childExit && !(apiReady && webReady)) {
