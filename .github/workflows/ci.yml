@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: make setup
+
+      - name: Build API and browser client
+        run: make build
+
+      - name: Smoke-check the local development command
+        run: node scripts/dev-smoke.mjs
+
+      - name: Run configured automated tests
+        run: make test
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: web
+
+      - name: Run browser end-to-end tests
+        run: make e2e
+
+      - name: Check acceptance-criteria traceability
+        run: node scripts/traceability.mjs --strict

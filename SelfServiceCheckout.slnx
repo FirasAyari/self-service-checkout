@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Checkout.Domain/Checkout.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/SelfServiceCheckout/">
+    <Project Path="src/SelfServiceCheckout/SelfServiceCheckout.Contracts/SelfServiceCheckout.Contracts.csproj" />
+    <Project Path="src/SelfServiceCheckout/SelfServiceCheckout/SelfServiceCheckout.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Checkout.Domain.Tests/Checkout.Domain.Tests.csproj" />
+    <Project Path="tests/SelfServiceCheckout.Api.Tests/SelfServiceCheckout.Api.Tests.csproj" />
+  </Folder>
+</Solution>
