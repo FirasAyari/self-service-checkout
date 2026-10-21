@@ -56,7 +56,7 @@ const generated = [
 ].join('\n')
 
 if (process.argv.includes('--check')) {
-  const current = await readFile(outputPath, 'utf8').catch(() => '')
+  const current = (await readFile(outputPath, 'utf8').catch(() => '')).replace(/\r\n/g, '\n')
   if (current !== generated) {
     console.error('frontend/src/api.generated.ts is stale. Run npm --prefix frontend run api:types and review the change.')
     process.exitCode = 1
