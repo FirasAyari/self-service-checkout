@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using SelfServiceCheckout.Application;
 using SelfServiceCheckout.Contracts;
 using SelfServiceCheckout.Data;
 
-namespace SelfServiceCheckout.Application;
+namespace SelfServiceCheckout.Infrastructure.Sqlite.Services;
 
 /// <summary>
 /// A deterministic demo provider. It accepts no card data and records outcomes in its own
@@ -11,7 +12,7 @@ namespace SelfServiceCheckout.Application;
 public sealed class MockPaymentGateway(
     IDbContextFactory<CheckoutDbContext> databaseFactory,
     TimeProvider timeProvider,
-    DemoChaosState chaosState)
+    DemoChaosState chaosState) : IMockPaymentGateway
 {
     public DemoChaosConfiguration Configuration => chaosState.Configuration;
 

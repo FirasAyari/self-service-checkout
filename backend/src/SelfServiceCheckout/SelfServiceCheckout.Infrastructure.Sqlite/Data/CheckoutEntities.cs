@@ -84,11 +84,3 @@ public sealed class PaymentDeclineLockoutEntity
     public long LockedUntilUnixMs { get; set; }
 }
 
-public sealed record QuoteLineSnapshot(
-    string ItemId,
-    string Name,
-    int Quantity,
-    long UnitPriceCents,
-    long LineTotalCents,
-    IReadOnlyList<string>? OptionIds = null,
-    long? BaseUnitPriceCents = null);

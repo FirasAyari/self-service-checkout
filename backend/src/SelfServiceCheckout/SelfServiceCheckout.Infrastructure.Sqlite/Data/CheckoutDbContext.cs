@@ -82,6 +82,7 @@ public sealed class CheckoutDbContext(DbContextOptions<CheckoutDbContext> option
             entity.Property(attempt => attempt.Id).HasMaxLength(32);
             entity.Property(attempt => attempt.Status).HasMaxLength(32).IsRequired();
             entity.HasIndex(attempt => attempt.OrderId).IsUnique();
+            entity.HasIndex(attempt => new { attempt.Status, attempt.CreatedAtUnixMs });
             entity.HasOne(attempt => attempt.Ledger)
                 .WithOne(ledger => ledger.Attempt)
                 .HasForeignKey<PaymentLedgerEntity>(ledger => ledger.AttemptId)
