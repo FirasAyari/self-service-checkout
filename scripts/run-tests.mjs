@@ -36,11 +36,11 @@ for (const project of testProjects) {
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
-const packageJson = JSON.parse(await readFile(join(root, 'web', 'package.json'), 'utf8'))
+const packageJson = JSON.parse(await readFile(join(root, 'frontend', 'package.json'), 'utf8'))
 if (packageJson.scripts?.test) {
   ranSuite = true
-  console.log('Running web tests: npm test --prefix web')
-  const result = spawnSync('npm', ['test', '--prefix', 'web'], { stdio: 'inherit', shell: process.platform === 'win32' })
+  console.log('Running frontend tests: npm test --prefix frontend')
+  const result = spawnSync('npm', ['test', '--prefix', 'frontend'], { stdio: 'inherit', shell: process.platform === 'win32' })
   if (result.error) throw result.error
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
@@ -51,4 +51,9 @@ const deliveryTests = spawnSync(process.execPath, ['--test', join(root, 'scripts
 if (deliveryTests.error) throw deliveryTests.error
 if (deliveryTests.status !== 0) process.exit(deliveryTests.status ?? 1)
 
-if (!ranSuite) console.log('No .NET or web product test suite is configured; only delivery documentation tests ran.')
+console.log('Running architecture boundary tests')
+const architectureTests = spawnSync(process.execPath, [join(root, 'scripts', 'architecture-boundaries.test.mjs')], { stdio: 'inherit' })
+if (architectureTests.error) throw architectureTests.error
+if (architectureTests.status !== 0) process.exit(architectureTests.status ?? 1)
+
+if (!ranSuite) console.log('No .NET or frontend product test suite is configured; only delivery documentation tests ran.')

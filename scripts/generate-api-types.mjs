@@ -3,8 +3,8 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const contractPath = join(root, 'tests', 'SelfServiceCheckout.Api.Tests', 'Contracts', 'openapi.v1.json')
-const outputPath = join(root, 'web', 'src', 'api.generated.ts')
+const contractPath = join(root, 'backend', 'tests', 'SelfServiceCheckout.Api.Tests', 'Contracts', 'openapi.v1.json')
+const outputPath = join(root, 'frontend', 'src', 'api.generated.ts')
 const contract = JSON.parse(await readFile(contractPath, 'utf8'))
 const schemas = contract.components?.schemas
 
@@ -50,7 +50,7 @@ function objectType(schema) {
 }
 
 const generated = [
-  '/* Generated from tests/SelfServiceCheckout.Api.Tests/Contracts/openapi.v1.json. Do not edit. */',
+  '/* Generated from backend/tests/SelfServiceCheckout.Api.Tests/Contracts/openapi.v1.json. Do not edit. */',
   ...Object.entries(schemas).map(([name, schema]) => `export type ${name} = ${typeOf(schema)}`),
   '',
 ].join('\n')
@@ -58,7 +58,7 @@ const generated = [
 if (process.argv.includes('--check')) {
   const current = await readFile(outputPath, 'utf8').catch(() => '')
   if (current !== generated) {
-    console.error('web/src/api.generated.ts is stale. Run npm --prefix web run api:types and review the change.')
+    console.error('frontend/src/api.generated.ts is stale. Run npm --prefix frontend run api:types and review the change.')
     process.exitCode = 1
   }
 } else {

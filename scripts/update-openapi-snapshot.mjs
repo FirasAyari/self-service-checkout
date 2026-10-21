@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const testProject = join('tests', 'SelfServiceCheckout.Api.Tests', 'SelfServiceCheckout.Api.Tests.csproj')
+const testProject = join('backend', 'tests', 'SelfServiceCheckout.Api.Tests', 'SelfServiceCheckout.Api.Tests.csproj')
 const update = spawnSync(process.execPath, [
   join(root, 'scripts', 'dotnet.mjs'),
   'test',

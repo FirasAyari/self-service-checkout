@@ -16,9 +16,10 @@ if (acceptanceIds.length === 0) {
 }
 
 const testRoots = [
-  { path: 'tests', match: () => true },
-  { path: 'web/e2e', match: () => true },
-  { path: 'web/src', match: (name) => /\.(test|spec)\.[jt]sx?$/i.test(name) },
+  { path: 'backend/tests', match: () => true },
+  { path: 'frontend/e2e', match: () => true },
+  { path: 'frontend/e2e-production', match: () => true },
+  { path: 'frontend/src', match: (name) => /\.(test|spec)\.[jt]sx?$/i.test(name) },
   { path: 'scripts', match: (name) => name === 'delivery-criteria.test.mjs' },
 ]
 const ignoredDirectories = new Set(['bin', 'dist', 'node_modules', 'obj'])
@@ -74,7 +75,8 @@ console.log(`Required criteria linked to a named test: ${covered.length}`)
 for (const id of acceptanceIds.filter((item) => sourceById.has(item))) {
   const disposition = criteria.get(id).disposition.toLowerCase()
   const label = disposition.startsWith('deviated:') ? 'constraint evidence (does not cover criterion)' : 'named test'
-  console.log(`  ${id} (${label}): ${[...new Set(sourceById.get(id))].join(', ')}`)
+  const sources = disposition.startsWith('deviated:') ? sourceById.get(id) : namedTestById.get(id)
+  console.log(`  ${id} (${label}): ${[...new Set(sources ?? [])].join(', ')}`)
 }
 for (const id of deviated) console.log(`  ${id}: documented deviation (${criteria.get(id).disposition.slice('deviated:'.length).trim()})`)
 if (invalidDisposition.length > 0) {
