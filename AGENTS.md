@@ -2,8 +2,8 @@
 
 ## Project boundaries
 
-- The server and business rules are C# on .NET 10. `src/Checkout.Domain` is kept independent of ASP.NET Core, EF Core, and SQLite.
-- The React + TypeScript browser client is under `web/`; API contracts are shared through JSON and must be checked at runtime at the network boundary.
+- The server and business rules are C# on .NET 10 under `backend/`. `backend/src/Checkout.Domain` is kept independent of ASP.NET Core, EF Core, and SQLite.
+- The React + TypeScript browser client is under `frontend/`; API contracts are shared through JSON and must be checked at runtime at the network boundary.
 - SQLite stores integer cents and UTC Unix milliseconds. Never use floating point for money.
 - Payment outcomes in this demo are simulated. Do not add PAN, expiry, CVC, or payment tokens to the order API, database, browser storage, logs, or screenshots.
 - A missing payment ledger result means “unknown”, not “declined”. Keep the attempt pending and its inventory reservation until an authoritative outcome exists.
@@ -17,4 +17,4 @@
 
 ## Local commands
 
-Run `make setup`, then `make dev`. Use `make build`, `make test`, `make e2e`, `make trace`, and `make check` for verification. `make e2e` runs the Playwright suite; `make trace` is strict and fails on required criteria without an AC-tagged test. Explicit deviations remain visible in the trace output and do not count as test coverage.
+Run `make setup`, then `make dev`. Use `make build`, `make test`, `make e2e`, `make trace`, and `make check` for verification. `make e2e` runs the Playwright suite; `make trace` is strict and fails on required criteria without an AC-tagged test. Explicit deviations remain visible in the trace output and do not count as test coverage. `docker compose up --build` builds and runs the containerized demo with its SQLite database in a named volume.

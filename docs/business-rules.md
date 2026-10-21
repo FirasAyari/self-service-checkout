@@ -50,8 +50,8 @@ This is a compact, ID-preserving index of the rules from the latest implementati
 | BR-O4 | Orders move forward from pending to paid or failed; paid is terminal. |
 | BR-O5 | Allocate pickup numbers only when paid, per business day and configured business time zone. |
 | BR-O6 | Keep failed orders for audit; only paid orders count as sales. |
-| BR-Y1 | The payment screen validates card number (13–19 digits and Luhn), future expiry (MM/YY), and 3–4 digit CVC on blur. Pay stays disabled until all fields are valid. |
-| BR-Y2 | Test values live only in payment-screen component state, are cleared when submission starts, and are never sent, persisted, logged, or captured in browser-test artifacts. The demo creates no payment token. See ADR-0002. |
+| BR-Y1 | The simulated checkout requests no card number, expiry, security code, or payment token; a demo order can be placed after quote review. |
+| BR-Y2 | The order request contains only the quote ID, idempotency key, and selected simulated outcome; the browser never collects payment credentials. See ADR-0002. |
 | BR-Y3 | The original plan uses deterministic mock-card cases. The current demo selects simulated outcomes instead of asking for card numbers. |
 | BR-Y4 | Definite declines use plain language, preserve the cart, and never expose gateway codes. |
 | BR-Y5 | Unknown payment status stays “confirming”; never offer another payment attempt while unresolved. |
@@ -77,6 +77,9 @@ This is a compact, ID-preserving index of the rules from the latest implementati
 | BR-X4 | Demo catalog/reset/chaos endpoints are mapped only in Development when explicitly enabled, and require an admin token of at least 32 characters. They are disabled by default. |
 | BR-X5 | Limit cross-origin access and rate-limit public endpoints. |
 | BR-X6 | The plan's payment tokens are single-use and short-lived; the current demo issues no payment token. |
+| BR-X7 | Simulated outcome controls are available only in local development and automated test builds. Outside Development, the server forces the standard simulated approval; the product continues to identify it as a demo. |
+| BR-X8 | Expired quotes are retained for 24 hours after expiration, then removed in batches of at most 500. |
+| BR-U1 | Package local same-origin photos for the brand, landing hero, and every catalog item; render them with descriptive layout and empty alt text when adjacent item text already names the food. |
 
 ## Status boundary
 

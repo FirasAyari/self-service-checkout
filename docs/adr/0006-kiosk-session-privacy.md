@@ -15,7 +15,7 @@ Store only item IDs and quantities for the cart in `sessionStorage`. While an at
 ## Alternatives considered
 
 - **Memory-only cart:** rejected because it loses a cart on accidental reload and cannot recover a pending attempt.
-- **Persist the full quote/order/payment form:** rejected because prices are stale-able and card/customer data must not remain in browser storage.
+- **Persist payment credentials:**
 - **A longer five-minute warning and one-minute grace period:** considered in review, then rejected in favor of the supplied plan's faster kiosk privacy reset.
 
 ## Consequences

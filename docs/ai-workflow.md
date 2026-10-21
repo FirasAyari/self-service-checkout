@@ -6,7 +6,7 @@
 - Keep the C# domain, API boundary, persistence, and React client responsibilities explicit. Confirm money, payment, stock, and kiosk privacy behavior against `business-rules.md` and `scenarios.md`.
 - For a checkout change, ask for focused review from the relevant planning/domain, .NET architecture, build-repair, security, and accessibility roles. Use only skills that fit the change; do not claim that every installed skill or agent was used.
 - Prefer evidence in source, executable tests, and build output. Label assumptions and test gaps rather than reconstructing unrecorded work as fact.
-- Do not add real card fields or claim a payment was declined when its outcome is unknown.
+- Do not add card-detail fields to the simulated checkout or claim an order was declined when its outcome is unknown.
 
 ## Change loop
 

@@ -20,8 +20,8 @@ Tags: **U** unit, **I** API/integration, **E** browser end-to-end.
 | SC-B1 | Tap add repeatedly | Quantity caps at ten with an explanation. | E |
 | SC-B2 | Exceed line, unit, or total cap | UI explains the limit; API rejects a bypass. | I |
 | SC-B3 | Rapidly tap the same item | Each action is counted once. | U |
-| SC-B4 | Submit invalid card fields | Show plain-text field errors on blur and keep Pay disabled until number, future expiry, and CVC pass validation. | U |
-| SC-B5 | Paste oversized content into card fields | Format numeric input, cap the number at 19 digits and CVC at 4 digits, and ignore excess pasted characters. | U |
+| SC-B4 | Continue from the reviewed quote without entering payment details | The demo-order action is available without card fields. | E |
+| SC-B5 | Inspect simulated checkout inputs | No card number, expiry, security code, or token input is rendered. | E |
 | SC-B6 | Send malformed quantities, unknown IDs, missing or extra fields | Reject invalid input without persisting an order or reserving stock. | I |
 | SC-B7 | Submit a client-invented price or total | Ignore client pricing and reject changed consent. | I |
 | SC-B8 | Repeat an item on multiple cart lines | Normalize/merge before validating limits. | I |
@@ -76,7 +76,7 @@ Tags: **U** unit, **I** API/integration, **E** browser end-to-end.
 | ID | Situation | Expected counter | Type |
 | --- | --- | --- | --- |
 | SC-F1 | Customer walks away mid-cart | Idle prompt/reset protects the next customer. | E |
-| SC-F2 | Customer walks away during payment | Typed values remain only in the payment screen and are discarded when the idle reset leaves that screen; they are not restored after reload. | E |
+| SC-F2 | Customer walks away during checkout | No payment credentials are collected; idle reset clears the active cart and order state. | E |
 | SC-F3 | Customer walks away on confirmation | Reset after a suitable confirmation period. | E |
 | SC-F4 | Customer needs to record pickup number | Keep the number prominent and readable. | — |
 | SC-F5 | Next customer arrives immediately | Start a clean order with no previous cart or reference. | E |
@@ -95,7 +95,15 @@ Tags: **U** unit, **I** API/integration, **E** browser end-to-end.
 | SC-G1 | Replay after idempotency retention | Reconcile with actual retention policy; never charge twice. | I |
 | SC-G2 | SQL-looking string in item ID | Parameterized data access and validation prevent injection. | I |
 | SC-G3 | Call admin route outside enabled Development demo mode | No admin route is exposed. | I |
-| SC-G4 | Search logs for payment credentials | No card fields reach the API or server logs; browser tests disable screenshots and traces while exercising test values. | I/U |
+| SC-G4 | Search API requests, logs, and browser state for payment credentials | The checkout has no credential inputs and its order request contains only the simulated-order contract. | I/E |
 | SC-G5 | Submit oversized body | Reject at the request boundary. | I |
 | SC-G6 | Submit many concurrent orders | Unique pickup numbers, nonnegative stock, one order per key. | I |
 | SC-G7 | Flood requests | Rate limits reject excess traffic with a retryable response. | I |
+| SC-G8 | Production build is used for customer checkout | No simulated outcome chooser appears and a non-approval request is normalized to the standard simulated outcome. | I/E |
+| SC-G9 | Quote traffic leaves expired records behind | Maintenance retains records for 24 hours after expiry and deletes at most 500 stale quotes per batch. | I |
+
+## H. Visual content
+
+| ID | Situation | Expected counter | Type |
+| --- | --- | --- | --- |
+| SC-H1 | Customer opens the menu on desktop or mobile | Goodtable branding, a food hero, and a matching photo for every catalog item load from same-origin assets; assistive technology gets the item name from the adjacent heading without redundant image text. | E |
