@@ -87,6 +87,25 @@ test('AC-D1 the container smoke completes an order and verifies its identity aft
   assert.doesNotMatch(readme, /make docker-smoke/)
 })
 
+test('AC-D1 production kiosk validation is scoped to a real deployment checklist', async () => {
+  const [readme, planReview, runbook] = await Promise.all([
+    read('README.md'),
+    read('docs/plan-review.md'),
+    read('docs/production-kiosk-runbook.md'),
+  ])
+
+  const outOfScopeStatement = /Out of scope for this submission \(simulated payments, single-host demo\)/
+  assert.match(planReview, outOfScopeStatement)
+  assert.match(runbook, outOfScopeStatement)
+  assert.match(readme, /Physical kiosk and deployment validation is out of scope/)
+  for (const checklistItem of ['target-device', 'TLS\/proxy', 'backup-restore', 'printer', 'cross-session privacy']) {
+    assert.match(runbook, new RegExp(checklistItem))
+  }
+  assert.match(runbook, /For a real kiosk deployment I would verify:/)
+  assert.doesNotMatch(planReview, /remain unrecorded|still need recorded|release remains blocked/i)
+  assert.doesNotMatch(runbook, /readiness stays unverified until/i)
+})
+
 test('AC-D2 documented verification commands and CI cover backend, frontend, browser, and trace checks', async () => {
   const [readme, makefile, workflow, packageSource, browserConfig, productionBrowserConfig] = await Promise.all([
     read('README.md'),

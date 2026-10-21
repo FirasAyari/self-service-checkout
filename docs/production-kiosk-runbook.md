@@ -65,10 +65,14 @@ Production mode forces the local simulated approval and never charges money. If 
 
 The application has no Production operator screen or safe manual settlement endpoint. If the order has no authoritative result, leave it pending and escalate to the application maintainer; repository policy does not allow guessing an outcome or releasing the reservation.
 
-## Kiosk acceptance before use
+## Out of scope for this submission: target-kiosk validation
 
-Automated browser tests do not replace testing the actual touchscreen, orientation, on-screen keyboard, printer, OS kiosk controls, network loss, and screen-reader behavior. Before allowing customers to use a device, record a supervised check of the required portrait and landscape layouts, zoom, keyboard reachability, focus, contrast, touch targets, idle reset, completion reset, outage recovery, printer output, privacy between sessions, and the exact demo-payment wording.
+**Out of scope for this submission (simulated payments, single-host demo).** Validation on a physical kiosk and its deployment environment is deliberately out of scope; this review does not claim that target-device, TLS/proxy, backup-restore, printer, or cross-session privacy checks were performed. For a real kiosk deployment I would verify:
 
-## Current limitation
+- The exact kiosk model and OS, touchscreen input, portrait and landscape layouts, zoom, on-screen keyboard, keyboard and screen-reader navigation, focus visibility, and touch target reachability.
+- TLS certificate and HTTPS behavior, allowed host names, trusted proxy addresses, and forwarded-header handling at the deployment edge.
+- A SQLite-consistent backup and a successful restore to a clean host, including orders, inventory, and pending attempts with no ledger result.
+- Physical printer output, including legibility, itemization, pickup reference, and the simulated-payment wording.
+- Idle and completion resets, browser back/reload behavior, and confirmation that the next customer cannot see prior-session data while unresolved attempts remain recoverable.
 
-The application is a single-host, SQLite-backed checkout demo. The repository can test software behavior, but it cannot prove the deployment's TLS/proxy configuration, backup restoration, hardware behavior, or local operating procedure. Production kiosk readiness stays unverified until the manual evidence above is recorded.
+The application remains a single-host, SQLite-backed checkout demo with simulated payment outcomes. The deployment and recovery procedures above are a production checklist, not evidence that a kiosk environment passed them. Automated software checks do not establish physical deployment readiness.
