@@ -111,7 +111,7 @@ h1, h2 { font-family: Fraunces, Georgia, serif; font-weight: 600; letter-spacing
 .dock-info small { color: #858a80; font-size: 11px; }
 .cart-count { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: #eaf0e6; color: #3d5e42; font-size: 15px; font-weight: 700; }
 .primary-button, .secondary-button { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 18px; padding: 0 20px; border-radius: 7px; font-size: 13px; font-weight: 700; transition: background .18s ease, transform .18s ease; }
-.primary-button { border: 1px solid var(--green); background: var(--green); color: white; box-shadow: 0 7px 14px rgba(50, 82, 57, .14); }
+.primary-button { border: 1px solid var(--green); background: var(--green); color: white; box-shadow: 0 7px 14px rgba(50, 82, 57, .14); transition: transform .18s ease; }
 .primary-button:hover:not(:disabled) { transform: translateY(-1px); background: var(--green-dark); }
 .primary-button span { font-size: 17px; font-weight: 400; }
 .secondary-button { border: 1px solid #d5ddcf; background: #fffefa; color: #466149; }

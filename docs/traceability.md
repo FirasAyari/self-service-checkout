@@ -70,6 +70,6 @@ These plan clauses conflict with the repository's security and payment-state rul
 | AC-Y6: after 30 seconds claim “not charged” or direct the customer to staff | An absent ledger result remains unknown, so the UI keeps confirming and never says the customer was not charged. No staff workflow is assumed. | Deviated: ADR-0003 and ADR-0007 |
 | AC-O7/O8: expire a pending attempt and release stock without a ledger result | Missing ledger data is not a decline. Keep the order pending and reservation held until an authoritative outcome exists. | Deviated: ADR-0003 |
 | AC-K4: verify an operating-system on-screen keyboard on a physical tablet | Browser tests cover the plan's two viewport sizes and reachable controls; this host has no physical tablet or OS keyboard to verify. | Hardware verification unavailable |
-| AC-D1: measure a clean Unix clone's setup-to-dev time | The README path and Ubuntu CI setup/smoke wiring are checked, but this Windows host cannot execute GNU Make or a clean Unix run. | Environment verification unavailable |
+| AC-D1: measure a clean Unix clone's setup-to-dev time | A fresh Ubuntu 24.04 WSL clone passed `make setup`, `make check`, and `make e2e`; the README development command returned HTTP 200 from Vite and ready from the API health endpoint. | Verified in WSL on 2026-10-21 |
 
 Run `node scripts/traceability.mjs --strict` for live named-test links. Every `Required` row needs an AC-tagged test name. Named-test traceability is a gate, not a substitute for the assertions those tests perform.
