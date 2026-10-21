@@ -17,6 +17,29 @@ const baseUrl = `http://127.0.0.1:${configuredPort}`
 const composePrefix = ['compose', '--project-name', projectName]
 const environment = { ...process.env, CHECKOUT_PORT: String(configuredPort) }
 
+function requireDocker() {
+  const engine = spawnSync('docker', ['info', '--format', '{{.Server.Version}}'], {
+    cwd: root,
+    env: environment,
+    stdio: 'ignore',
+  })
+  if (engine.error?.code === 'ENOENT') {
+    throw new Error('Docker CLI is unavailable. Install Docker Desktop or the Docker Engine with Compose v2, then retry.')
+  }
+  if (engine.status !== 0) {
+    throw new Error('Docker Engine is unavailable. Start Docker Desktop or the Docker Engine, then retry.')
+  }
+
+  const compose = spawnSync('docker', ['compose', 'version'], {
+    cwd: root,
+    env: environment,
+    stdio: 'ignore',
+  })
+  if (compose.status !== 0) {
+    throw new Error('Docker Compose v2 is unavailable. Install the Compose plugin, then retry.')
+  }
+}
+
 function compose(args) {
   const result = spawnSync('docker', [...composePrefix, ...args], {
     cwd: root,
@@ -58,6 +81,13 @@ async function getJson(path, init) {
 }
 
 let primaryFailure
+
+try {
+  requireDocker()
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error))
+  process.exit(1)
+}
 
 try {
   compose(['up', '--detach', '--build', '--wait', '--wait-timeout', '120'])
