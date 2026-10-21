@@ -92,7 +92,7 @@ Tags: **U** unit, **I** API/integration, **E** browser end-to-end.
 
 | ID | Situation | Expected counter | Type |
 | --- | --- | --- | --- |
-| SC-G1 | Replay after idempotency retention | Reconcile with actual retention policy; never charge twice. | I |
+| SC-G1 | Replay after quote cleanup (orders and idempotency keys have no expiry policy) | Return the stored order once; do not reserve or settle it again. | I |
 | SC-G2 | SQL-looking string in item ID | Parameterized data access and validation prevent injection. | I |
 | SC-G3 | Call admin route outside enabled Development demo mode | No admin route is exposed. | I |
 | SC-G4 | Search API requests, logs, and browser state for payment credentials | The checkout has no credential inputs and its order request contains only the simulated-order contract. | I/E |

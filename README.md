@@ -72,7 +72,15 @@ docker compose up --build
 
 Open [http://127.0.0.1:8080](http://127.0.0.1:8080). The image builds the React app and serves it from the ASP.NET Core host. SQLite data persists in the `checkout-data` Docker volume. The container runs as a non-root user and uses simulated approval only; it does not connect to a payment provider.
 
-Docker Compose is included, but Docker was unavailable in the environment used to prepare this submission, so the container path has not been run or verified here. When Docker is available, the `docker compose up --build` command above is the documented start command; the `checkout-data` volume persists local demo data.
+Stop the foreground command with Ctrl+C, or run `docker compose down` from another terminal. The named volume remains, so local orders persist when the container is started again.
+
+To run the isolated container smoke check, which builds the image, checks the oversized-request limit, places a demo order, restarts the container, checks that the order identity persists, and removes its temporary container and volume, run:
+
+```sh
+node scripts/docker-smoke.mjs
+```
+
+The Docker build, readiness check, packaged assets, oversized-request rejection, simulated order, and restart persistence passed this smoke check on Windows on October 21, 2026.
 
 ## Build and verification
 

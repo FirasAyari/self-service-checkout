@@ -205,6 +205,33 @@ test('AC-Y5 / AC-R3 / AC-R4 / AC-M5 a decline retains cart, highlights price cha
   expect(new Set(api.idempotencyKeys).size).toBe(2)
 })
 
+test('SC-A2 a changed cart after a declined attempt is quoted again and submitted with a fresh key', async ({ page }) => {
+  const api = await mockCheckoutApi(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Add Garden sandwich' }).click()
+  await page.getByRole('button', { name: 'Add one: Garden sandwich' }).click()
+  await page.getByRole('button', { name: 'Review order' }).click()
+  await expect(page.getByRole('heading', { name: 'Your order, your way.' })).toBeVisible()
+  await continueToOrder(page)
+  await page.locator('#payment-scenario').selectOption('Decline')
+  await payDemoOrder(page)
+  await expect(page.getByText('DEMO ORDER NOT COMPLETED')).toBeVisible()
+  await page.getByRole('button', { name: 'Try demo order again' }).click()
+  await expect(page.getByRole('heading', { name: 'Your order, your way.' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Remove one: Garden sandwich' }).click()
+  await expect(page.locator('.review-total strong')).toHaveText('$8.00')
+  await page.getByRole('checkbox', { name: 'I accept the updated total of $8.00' }).click()
+  await continueToOrder(page)
+  await page.locator('#payment-scenario').selectOption('Approve')
+  await payDemoOrder(page)
+
+  await expect(page.getByRole('heading', { name: 'That’s a good choice.' })).toBeVisible()
+  expect(api.paymentAttempts).toBe(2)
+  expect(new Set(api.idempotencyKeys).size).toBe(2)
+  expect(api.orderBodies.map((body) => body.scenario)).toEqual(['Decline', 'Approve'])
+})
+
 test('AC-Y6 / AC-K2 an unknown result stays pending and resolves automatically by the same status key', async ({ page }) => {
   const api = await mockCheckoutApi(page, { settleAfterPolls: 1 })
   await addOneAndReview(page)
@@ -227,7 +254,7 @@ test('AC-Y6 / AC-K2 a payment with no ledger result stays pending after 30 secon
   await page.locator('#payment-scenario').selectOption('StillUnknown')
   await payDemoOrder(page)
   await expect(page.getByRole('heading', { name: 'Confirming your order.' })).toBeVisible()
-  await page.clock.fastForward(30_000)
+  await page.clock.runFor(30_000)
   await expect(page.getByRole('heading', { name: 'Confirming your order.' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Place demo order/ })).toHaveCount(0)
   await expect(page.getByRole('alertdialog')).toHaveCount(0)
@@ -235,7 +262,7 @@ test('AC-Y6 / AC-K2 a payment with no ledger result stays pending after 30 secon
   expect(api.statusPolls).toBeGreaterThanOrEqual(1)
 })
 
-test('AC-Y3 duplicate rapid taps create one request with one idempotency key', async ({ page }) => {
+test('SC-E2 AC-Y3 a slow API shows progress and duplicate taps create one request with one idempotency key', async ({ page }) => {
   let releaseOrder!: () => void
   const orderGate = new Promise<void>((resolve) => { releaseOrder = resolve })
   const api = await mockCheckoutApi(page, { orderGate })
@@ -251,11 +278,81 @@ test('AC-Y3 duplicate rapid taps create one request with one idempotency key', a
   })
   await expect(page.getByRole('heading', { name: 'Confirming your order.' })).toBeVisible()
   expect(api.paymentAttempts).toBe(1)
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('goodtable.attempt.v1') ?? 'null')?.idempotencyKey)).toBe(api.idempotencyKeys[0])
   await expect(payButton).toHaveCount(0)
   releaseOrder()
   await expect(page.getByRole('heading', { name: 'That’s a good choice.' })).toBeVisible()
   expect(api.paymentAttempts).toBe(1)
   expect(new Set(api.idempotencyKeys).size).toBe(1)
+})
+
+test('SC-D8 a request lost before reaching the server stays recoverable on the same attempt', async ({ page }) => {
+  const api = await mockCheckoutApi(page)
+  let attemptedKey = ''
+  let dropRequest = true
+  let notFoundStatus = true
+  await page.route('**/api/orders', async (route) => {
+    if (dropRequest) {
+      dropRequest = false
+      attemptedKey = (route.request().postDataJSON() as { idempotencyKey: string }).idempotencyKey
+      await route.abort('failed')
+      return
+    }
+    await route.fallback()
+  })
+  await page.route('**/api/orders/status', async (route) => {
+    if (notFoundStatus) {
+      notFoundStatus = false
+      await route.fulfill({ status: 404, json: { title: 'This attempt is not in the system yet.', code: 'ORDER_NOT_FOUND' } })
+      return
+    }
+    await route.fallback()
+  })
+
+  await addOneAndReview(page)
+  await continueToOrder(page)
+  await payDemoOrder(page)
+  await expect(page.getByRole('status').filter({ hasText: 'The connection was interrupted' })).toBeVisible()
+  await page.getByRole('button', { name: 'Retry this same order' }).click()
+  await expect(page.getByRole('heading', { name: 'That’s a good choice.' })).toBeVisible()
+
+  expect(attemptedKey).toBeTruthy()
+  expect(api.idempotencyKeys).toEqual([attemptedKey])
+  expect(api.paymentAttempts).toBe(1)
+})
+
+test('SC-E7 malformed successful JSON reports a recoverable error and preserves the same attempt key', async ({ page }) => {
+  const api = await mockCheckoutApi(page)
+  let attemptKey = ''
+  let malformedResponse = true
+  let notFoundStatus = true
+  await page.route('**/api/orders', async (route) => {
+    if (malformedResponse) {
+      malformedResponse = false
+      attemptKey = (route.request().postDataJSON() as { idempotencyKey: string }).idempotencyKey
+      await route.fulfill({ status: 201, contentType: 'application/json', body: '{"order":' })
+      return
+    }
+    await route.fallback()
+  })
+  await page.route('**/api/orders/status', async (route) => {
+    if (notFoundStatus) {
+      notFoundStatus = false
+      await route.fulfill({ status: 404, json: { title: 'This attempt is not in the system yet.', code: 'ORDER_NOT_FOUND' } })
+      return
+    }
+    await route.fallback()
+  })
+
+  await addOneAndReview(page)
+  await continueToOrder(page)
+  await payDemoOrder(page)
+  await expect(page.getByRole('status').filter({ hasText: 'unexpected response' })).toBeVisible()
+  await page.getByRole('button', { name: 'Retry this same order' }).click()
+  await expect(page.getByRole('heading', { name: 'That’s a good choice.' })).toBeVisible()
+
+  expect(api.idempotencyKeys).toEqual([attemptKey])
+  expect(api.paymentAttempts).toBe(1)
 })
 
 test('AC-Y7 PAYMENT_LOCKED is a known rejection with a countdown, no status poll, and retry after expiry', async ({ page }) => {
@@ -393,6 +490,19 @@ test('AC-R1 review shows progress while the authoritative quote is loading, then
   await expect(page.getByRole('button', { name: 'Update total' })).toHaveCount(0)
 })
 
+test('SC-A3 a delayed review with an unchanged catalog shows its current quote without extra consent', async ({ page }) => {
+  await page.clock.install()
+  await mockCheckoutApi(page)
+  await page.goto('/')
+  await page.clock.setFixedTime(new Date(Date.now() + 10 * 60_000))
+  await page.getByRole('button', { name: 'Add Garden sandwich' }).click()
+  await page.getByRole('button', { name: 'Review order' }).click()
+
+  await expect(page.locator('.review-total strong')).toHaveText('$8.00')
+  await expect(page.getByRole('checkbox', { name: /accept the updated total/ })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Continue to place order' })).toBeEnabled()
+})
+
 test('AC-R1 editing a reviewed cart automatically refreshes the quote and requests consent', async ({ page }) => {
   await mockCheckoutApi(page)
   await page.goto('/')
@@ -481,6 +591,21 @@ test('AC-K1 / AC-C6 idle timeout warns, can be dismissed, then clears the cart a
   await expect(page.evaluate(() => sessionStorage.getItem('goodtable.cart.v1'))).resolves.toBeNull()
 })
 
+test('SC-F2 walking away during checkout clears the active quote and cart without payment credentials', async ({ page }) => {
+  await page.clock.install()
+  await mockCheckoutApi(page)
+  await addOneAndReview(page)
+  await continueToOrder(page)
+  await expect(page.locator('input')).toHaveCount(0)
+  await page.clock.fastForward(61_000)
+  await expect(page.getByRole('alertdialog', { name: 'Still choosing?' })).toBeVisible()
+  await page.clock.fastForward(15_000)
+
+  await expect(page.getByRole('heading', { name: 'Made for your moment.' })).toBeVisible()
+  await expect(page.evaluate(() => sessionStorage.getItem('goodtable.cart.v1'))).resolves.toBeNull()
+  await expect(page.evaluate(() => sessionStorage.getItem('goodtable.attempt.v1'))).resolves.toBeNull()
+})
+
 test('AC-C6 a browser reload restores quantities and option IDs without persisting prices or payment data', async ({ page }) => {
   await mockCheckoutApi(page)
   await page.goto('/')
@@ -499,8 +624,16 @@ test('AC-K5 keyboard basics and axe show labelled controls and no serious or cri
   await mockCheckoutApi(page)
   await page.goto('/')
   await expect(page.getByRole('button', { name: 'Add Garden sandwich' })).toBeVisible()
+  const viewportMeta = await page.locator('meta[name="viewport"]').getAttribute('content')
+  expect(viewportMeta).toMatch(/width=device-width/)
+  expect(viewportMeta).not.toMatch(/user-scalable\s*=\s*no|maximum-scale\s*=\s*1/i)
   await page.keyboard.press('Tab')
   await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused()
+  const focusOutline = await page.getByRole('link', { name: 'Skip to main content' }).evaluate((element) => {
+    const style = getComputedStyle(element)
+    return [style.outlineStyle, style.outlineWidth]
+  })
+  expect(focusOutline).toEqual(['solid', '3px'])
   await page.keyboard.press('Tab')
   await expect(page.getByRole('link', { name: /goodtable/i })).toBeFocused()
   await page.getByRole('link', { name: 'Skip to main content' }).focus()
@@ -612,7 +745,24 @@ test('AC-K4 tablet portrait and landscape keep cart and checkout controls reacha
     expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width)
     expect(box!.y).toBeGreaterThanOrEqual(0)
     expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height)
+
+    await page.setViewportSize({ width: viewport.width, height: 420 })
+    await pay.scrollIntoViewIfNeeded()
+    const shortViewportBox = await pay.boundingBox()
+    expect(shortViewportBox).not.toBeNull()
+    expect(shortViewportBox!.y).toBeGreaterThanOrEqual(0)
+    expect(shortViewportBox!.y + shortViewportBox!.height).toBeLessThanOrEqual(420)
   }
+})
+
+test('BR-K8 customer-facing copy switches through the shared language catalog', async ({ page }) => {
+  await mockCheckoutApi(page)
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Made for your moment.' })).toBeVisible()
+  await page.locator('.language-picker select').selectOption('pt-BR')
+  await expect(page.locator('html')).toHaveAttribute('lang', 'pt-BR')
+  await expect(page.getByRole('heading', { name: 'Feito para o seu momento.' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Adicionar Garden sandwich' })).toBeVisible()
 })
 
 test('AC-K5 mobile menu keeps its first action visible with readable copy and 44px touch controls', async ({ page }) => {

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -45,6 +46,87 @@ public sealed class CheckoutApiTests
         Assert.Equal(12, items["turkey-melt"].Stock);
     }
 
+    [Fact(DisplayName = "BR-M3: menu version changes with price, availability, and stock but stays stable otherwise")]
+    public async Task MenuVersion_ChangesWhenRelevantCatalogDataChanges()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost(demoModeEnabled: true, adminToken: TestAdminToken);
+
+        var initial = await host.Client.GetFromJsonAsync<MenuResponse>("/api/menu");
+        var unchanged = await host.Client.GetFromJsonAsync<MenuResponse>("/api/menu");
+        Assert.Equal(initial?.Version, unchanged?.Version);
+        Assert.Matches("^[A-F0-9]{16}$", initial!.Version);
+
+        await SetPriceAsync(host, "turkey-melt", 896);
+        var repriced = await host.Client.GetFromJsonAsync<MenuResponse>("/api/menu");
+        Assert.NotEqual(initial.Version, repriced?.Version);
+
+        await SetStockAsync(host, "turkey-melt", 11);
+        var restocked = await host.Client.GetFromJsonAsync<MenuResponse>("/api/menu");
+        Assert.NotEqual(repriced?.Version, restocked?.Version);
+
+        await SetActiveAsync(host, "turkey-melt", false);
+        var deactivated = await host.Client.GetFromJsonAsync<MenuResponse>("/api/menu");
+        Assert.NotEqual(restocked?.Version, deactivated?.Version);
+    }
+
+    [Fact(DisplayName = "BR-M4: menu and quote prices are positive integer minor units in the deployment currency")]
+    public async Task MenuAndQuote_UsePositiveIntegerCentPricesAndCurrency()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+
+        var menu = await host.Client.GetFromJsonAsync<MenuResponse>("/api/menu");
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+
+        Assert.All(menu!.Categories.SelectMany(category => category.Items), item => Assert.True(item.PriceCents > 0));
+        Assert.Equal("USD", quote.Currency);
+        Assert.All(quote.Lines, line =>
+        {
+            Assert.True(line.UnitPriceCents > 0);
+            Assert.True(line.LineTotalCents > 0);
+            Assert.Equal(line.UnitPriceCents * line.Quantity, line.LineTotalCents);
+        });
+    }
+
+    [Fact(DisplayName = "BR-S3: null stock stays unlimited after order settlement")]
+    public async Task PlaceOrder_UnlimitedStockIsNotDecremented()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+        await SetStockAsync(host, "turkey-melt", null);
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 2));
+
+        var order = await PlaceOrderAsync(host.Client, quote.QuoteId, Guid.NewGuid().ToString("N"), MockPaymentScenario.Approve);
+
+        Assert.Equal(HttpStatusCode.Created, order.Response.StatusCode);
+        Assert.Null(await GetStockAsync(host, "turkey-melt"));
+    }
+
+    [Fact(DisplayName = "BR-O6: failed orders remain auditable and only paid orders receive pickup numbers")]
+    public async Task PlaceOrder_DeclinesRemainStoredButOnlyPaidOrdersReceivePickupNumbers()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+        var declinedQuote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+        var paidQuote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+
+        var declined = await PlaceOrderAsync(host.Client, declinedQuote.QuoteId, Guid.NewGuid().ToString("N"), MockPaymentScenario.Decline);
+        var paid = await PlaceOrderAsync(host.Client, paidQuote.QuoteId, Guid.NewGuid().ToString("N"), MockPaymentScenario.Approve);
+
+        Assert.Equal("PAYMENT_FAILED", declined.Order?.Status);
+        Assert.Null(declined.Order?.PickupNumber);
+        Assert.Equal("PAID", paid.Order?.Status);
+        Assert.InRange(paid.Order?.PickupNumber ?? 0, 1, int.MaxValue);
+        await using var scope = host.Services.CreateAsyncScope();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CheckoutDbContext>>();
+        await using var db = await factory.CreateDbContextAsync();
+        Assert.Equal(2, await db.Orders.CountAsync());
+        Assert.Equal(1, await db.Orders.CountAsync(order => order.Status == "PAYMENT_FAILED"));
+        Assert.Equal(1, await db.Orders.CountAsync(order => order.Status == "PAID"));
+        Assert.Single(await db.PickupCounters.ToListAsync());
+    }
+
     [Fact(DisplayName = "EVAL-PROD-01: readiness checks the checkout database while liveness remains independent")]
     public async Task HealthEndpoints_ReadinessTracksDatabaseAndLivenessDoesNot()
     {
@@ -74,16 +156,24 @@ public sealed class CheckoutApiTests
         Assert.Equal("not-ready", (await legacyReady.Content.ReadFromJsonAsync<HealthEndpointResponse>())?.Status);
     }
 
-    [Fact(DisplayName = "EVAL-PROD-04: only explicitly trusted proxies can set the client IP used for limits")]
+    [Fact(DisplayName = "BR-X5 SC-G7 EVAL-PROD-04: cross-origin access is closed and rate limits are retryable")]
     public async Task ForwardedClientAddress_IsAcceptedOnlyFromConfiguredProxy()
     {
         using var untrustedDatabase = new TemporaryCheckoutDatabase();
         using var untrustedHost = untrustedDatabase.StartHost();
+        using (var crossOrigin = new HttpRequestMessage(HttpMethod.Get, "/api/menu"))
+        {
+            crossOrigin.Headers.Add("Origin", "https://untrusted.example");
+            using var response = await untrustedHost.Client.SendAsync(crossOrigin);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.False(response.Headers.Contains("Access-Control-Allow-Origin"));
+        }
 
         for (var index = 1; index <= 11; index++)
         {
             using var response = await SubmitInvalidOrderWithForwardedAddressAsync(untrustedHost.Client, $"192.0.2.{index}");
             Assert.Equal(index == 11 ? HttpStatusCode.TooManyRequests : HttpStatusCode.BadRequest, response.StatusCode);
+            if (index == 11) Assert.Equal("60", Assert.Single(response.Headers.GetValues("Retry-After")));
         }
 
         using var trustedDatabase = new TemporaryCheckoutDatabase();
@@ -122,6 +212,21 @@ public sealed class CheckoutApiTests
         Assert.Contains("BusinessTimeZone", exception.Message, StringComparison.Ordinal);
     }
 
+    [Theory(DisplayName = "BR-X4: demo administration requires Development and a sufficiently long token")]
+    [InlineData("Development", "short", "AdminToken")]
+    [InlineData("Production", TestAdminToken, "Demo administration requires Development")]
+    public void Startup_RejectsUnsafeDemoAdministrationConfiguration(string environmentName, string token, string expectedMessage)
+    {
+        using var database = new TemporaryCheckoutDatabase();
+
+        var exception = Assert.ThrowsAny<OptionsValidationException>(() => database.StartHost(
+            demoModeEnabled: true,
+            adminToken: token,
+            environmentName: environmentName));
+
+        Assert.Contains(expectedMessage, exception.Message, StringComparison.Ordinal);
+    }
+
     [Fact(DisplayName = "EVAL-PROD-03: pickup date follows the configured store time zone")]
     public async Task PickupNumber_UsesConfiguredBusinessTimeZone()
     {
@@ -143,6 +248,34 @@ public sealed class CheckoutApiTests
         var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CheckoutDbContext>>();
         await using var db = await factory.CreateDbContextAsync();
         Assert.Equal("2026-01-01", (await db.PickupCounters.SingleAsync()).BusinessDate);
+    }
+
+    [Fact(DisplayName = "SC-E6: a payment settled after local midnight gets the new business day's pickup number")]
+    public async Task PickupNumber_UsesBusinessDayAtSettlementAfterRollover()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        var beforeMidnight = new DateTimeOffset(2026, 1, 1, 23, 59, 59, TimeSpan.Zero);
+        var clock = new FixedTimeProvider(beforeMidnight);
+        using var host = database.StartHost(timeProvider: clock);
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+        var key = Guid.NewGuid().ToString("N");
+
+        var pending = await PlaceOrderAsync(host.Client, quote.QuoteId, key, MockPaymentScenario.UnknownAfterApproval);
+        Assert.Equal(HttpStatusCode.Accepted, pending.Response.StatusCode);
+        clock.SetUtcNow(beforeMidnight.AddSeconds(2));
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var payments = scope.ServiceProvider.GetRequiredService<IPaymentReconciliationService>();
+            await payments.ReconcilePendingAsync(CancellationToken.None);
+        }
+
+        await using var readScope = host.Services.CreateAsyncScope();
+        var factory = readScope.ServiceProvider.GetRequiredService<IDbContextFactory<CheckoutDbContext>>();
+        await using var db = await factory.CreateDbContextAsync();
+        var settled = await db.Orders.SingleAsync(order => order.IdempotencyKey == key);
+        Assert.Equal("PAID", settled.Status);
+        Assert.Equal("2026-01-02", settled.PickupBusinessDate);
+        Assert.Equal(1, settled.PickupNumber);
     }
 
     [Fact(DisplayName = "EVAL-PROD-02 AC-D5: production fixes the demo outcome and exposes no demo controls")]
@@ -361,6 +494,100 @@ public sealed class CheckoutApiTests
         Assert.Equal(12, await GetStockAsync(host, "turkey-melt"));
     }
 
+    [Fact(DisplayName = "SC-B2: API rejects line, unit, and distinct-line caps")]
+    public async Task CreateQuote_RejectsLineAndUnitLimitBypass()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+
+        using var lineLimit = await CreateQuoteAsync(host.Client, new CartLineRequest("turkey-melt", 11));
+        Assert.Equal(HttpStatusCode.BadRequest, lineLimit.StatusCode);
+        Assert.Equal("CART_LINE", await GetProblemCodeAsync(lineLimit));
+
+        using var unitLimit = await CreateQuoteAsync(host.Client, Enumerable.Range(0, 11)
+            .Select(index => new CartLineRequest($"unknown-{index}", 3)).ToArray());
+        Assert.Equal(HttpStatusCode.BadRequest, unitLimit.StatusCode);
+        Assert.Equal("CART_UNITS", await GetProblemCodeAsync(unitLimit));
+
+        using var distinctLineLimit = await CreateQuoteAsync(host.Client, Enumerable.Range(0, 16)
+            .Select(index => new CartLineRequest($"unknown-{index}", 1)).ToArray());
+        Assert.Equal(HttpStatusCode.BadRequest, distinctLineLimit.StatusCode);
+        Assert.Equal("CART_SIZE", await GetProblemCodeAsync(distinctLineLimit));
+        Assert.Equal(0, await CountOrdersAsync(host));
+    }
+
+    [Fact(DisplayName = "SC-B6 BR-X1: malformed, missing, unknown, and extra request fields fail without side effects")]
+    public async Task RequestShape_RejectsMalformedAndUnknownCheckoutInput()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+        var invalidQuotes = new (string Body, HttpStatusCode Status, string? Code)[]
+        {
+            ("{}", HttpStatusCode.BadRequest, null),
+            ("{\"items\":[{\"itemId\":\"turkey-melt\",\"quantity\":0}]}", HttpStatusCode.BadRequest, "CART_LINE"),
+            ("{\"items\":[{\"itemId\":\"turkey-melt\"}]}", HttpStatusCode.BadRequest, null),
+            ("{\"items\":[{\"itemId\":\"turkey-melt\",\"quantity\":1,\"priceCents\":1}]}", HttpStatusCode.BadRequest, null),
+            ("{\"items\":[{\"itemId\":\"missing-menu-item\",\"quantity\":1}]}", HttpStatusCode.Conflict, "ITEM_UNAVAILABLE")
+        };
+
+        foreach (var (body, status, code) in invalidQuotes)
+        {
+            using var response = await host.Client.PostAsync("/api/quotes", new StringContent(body, Encoding.UTF8, "application/json"));
+            Assert.Equal(status, response.StatusCode);
+            if (code is not null) Assert.Equal(code, await GetProblemCodeAsync(response));
+        }
+
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+        var key = Guid.NewGuid().ToString("N");
+        var missingScenario = JsonSerializer.Serialize(new { quoteId = quote.QuoteId, idempotencyKey = key });
+        using (var response = await host.Client.PostAsync("/api/orders", new StringContent(missingScenario, Encoding.UTF8, "application/json")))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        var extraOrderField = JsonSerializer.Serialize(new { quoteId = quote.QuoteId, idempotencyKey = key, scenario = "Approve", totalCents = 1 });
+        using (var response = await host.Client.PostAsync("/api/orders", new StringContent(extraOrderField, Encoding.UTF8, "application/json")))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        Assert.Equal(1, await CountQuotesAsync(host));
+        Assert.Equal(0, await CountOrdersAsync(host));
+        Assert.Equal(0, await CountLedgerEntriesAsync(host));
+        Assert.Equal(12, await GetStockAsync(host, "turkey-melt"));
+    }
+
+    [Fact(DisplayName = "SC-B7: invented client prices are rejected and changed consent cannot be bypassed")]
+    public async Task PlaceOrder_RejectsClientPriceFieldsAndChangedQuote()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+        var key = Guid.NewGuid().ToString("N");
+        var inventedAmount = JsonSerializer.Serialize(new
+        {
+            quoteId = quote.QuoteId,
+            idempotencyKey = key,
+            scenario = "Approve",
+            unitPriceCents = 1,
+            totalCents = 1
+        });
+
+        using (var response = await host.Client.PostAsync("/api/orders", new StringContent(inventedAmount, Encoding.UTF8, "application/json")))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        await SetPriceAsync(host, "turkey-melt", 900);
+        var staleQuote = await PlaceOrderAsync(host.Client, quote.QuoteId, key, MockPaymentScenario.Approve);
+
+        Assert.Equal(HttpStatusCode.Conflict, staleQuote.Response.StatusCode);
+        Assert.Equal("PRICE_CHANGED", await GetProblemCodeAsync(staleQuote.Response));
+        Assert.Equal(0, await CountOrdersAsync(host));
+        Assert.Equal(0, await CountLedgerEntriesAsync(host));
+        Assert.Equal(12, await GetStockAsync(host, "turkey-melt"));
+    }
+
     [Fact(DisplayName = "AC-O1: first paid order returns Created with the paid receipt fields and no card data")]
     public async Task PlaceOrder_FirstPaidOrderReturnsCreatedAndPublicReceipt()
     {
@@ -500,6 +727,35 @@ public sealed class CheckoutApiTests
         Assert.Equal(11, await GetStockAsync(restartedHost, "turkey-melt"));
     }
 
+    [Fact(DisplayName = "SC-C7: catalog price changes after reservation do not change the order snapshot")]
+    public async Task UnknownAfterApproval_PreservesOrderSnapshotWhenCatalogChangesBeforeSettlement()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+        var key = Guid.NewGuid().ToString("N");
+
+        var pending = await PlaceOrderAsync(host.Client, quote.QuoteId, key, MockPaymentScenario.UnknownAfterApproval);
+        Assert.Equal(HttpStatusCode.Accepted, pending.Response.StatusCode);
+        await SetPriceAsync(host, "turkey-melt", 900);
+        await AgePendingOrderAsync(host, key, TimeSpan.FromSeconds(31));
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var payments = scope.ServiceProvider.GetRequiredService<IPaymentReconciliationService>();
+            await payments.ReconcilePendingAsync(CancellationToken.None);
+        }
+        var status = await host.Client.PostAsJsonAsync("/api/orders/status", new OrderStatusRequest(key));
+        var paid = await status.Content.ReadFromJsonAsync<OrderStatusResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, status.StatusCode);
+        Assert.Equal("PAID", paid?.Status);
+        Assert.Equal(895, paid?.TotalCents);
+        Assert.Equal(quote.TaxCents, paid?.TaxCents);
+        Assert.Equal(895, Assert.Single(paid!.Lines).UnitPriceCents);
+        var menu = await host.Client.GetFromJsonAsync<MenuResponse>("/api/menu");
+        Assert.Equal(900, menu?.Categories.SelectMany(category => category.Items).Single(item => item.Id == "turkey-melt").PriceCents);
+    }
+
     [Fact]
     public async Task PriceChangeRejectsOrderWithoutClaimingIdempotencyKeyOrReservingStock()
     {
@@ -538,6 +794,148 @@ public sealed class CheckoutApiTests
         Assert.Equal("STOCK_CHANGED", await GetProblemCodeAsync(soldOut));
         Assert.Equal(HttpStatusCode.Conflict, overstock.StatusCode);
         Assert.Equal("STOCK_CHANGED", await GetProblemCodeAsync(overstock));
+    }
+
+    [Fact(DisplayName = "SC-C2: stock sold between quote and submit is rejected without payment and can recover")]
+    public async Task PlaceOrder_RejectsNewStockShortfallWithoutSideEffectsAndCanRetry()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+        var key = Guid.NewGuid().ToString("N");
+        await SetStockAsync(host, "turkey-melt", 0);
+
+        var rejected = await PlaceOrderAsync(host.Client, quote.QuoteId, key, MockPaymentScenario.Approve);
+
+        Assert.Equal(HttpStatusCode.Conflict, rejected.Response.StatusCode);
+        Assert.Equal("STOCK_CHANGED", await GetProblemCodeAsync(rejected.Response));
+        Assert.Equal(0, await CountOrdersAsync(host));
+        Assert.Equal(0, await CountLedgerEntriesAsync(host));
+        Assert.Equal(0, await GetStockAsync(host, "turkey-melt"));
+
+        await SetStockAsync(host, "turkey-melt", 12);
+        var recovered = await PlaceOrderAsync(host.Client, quote.QuoteId, key, MockPaymentScenario.Approve);
+
+        Assert.Equal(HttpStatusCode.Created, recovered.Response.StatusCode);
+        Assert.Equal("PAID", recovered.Order?.Status);
+        Assert.Equal(11, await GetStockAsync(host, "turkey-melt"));
+    }
+
+    [Fact(DisplayName = "SC-C4: an item deactivated after quote cannot be ordered")]
+    public async Task PlaceOrder_RejectsItemDeactivatedAfterQuote()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+        await SetActiveAsync(host, "turkey-melt", false);
+
+        var rejected = await PlaceOrderAsync(host.Client, quote.QuoteId, Guid.NewGuid().ToString("N"), MockPaymentScenario.Approve);
+
+        Assert.Equal(HttpStatusCode.Conflict, rejected.Response.StatusCode);
+        Assert.Equal("ITEM_CHANGED", await GetProblemCodeAsync(rejected.Response));
+        Assert.Equal(0, await CountOrdersAsync(host));
+        Assert.Equal(0, await CountLedgerEntriesAsync(host));
+        Assert.Equal(12, await GetStockAsync(host, "turkey-melt"));
+    }
+
+    [Fact(DisplayName = "SC-E4: SQLite writer contention returns a retryable error without partial reservation")]
+    public async Task PlaceOrder_ReturnsRetryableErrorWhenSqliteIsBusy()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+        await using var blocker = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = database.DatabasePath,
+            Mode = SqliteOpenMode.ReadWrite,
+            Cache = SqliteCacheMode.Shared,
+            Pooling = false
+        }.ToString());
+        await blocker.OpenAsync();
+        await using var lockCommand = blocker.CreateCommand();
+        lockCommand.CommandText = "SELECT * FROM catalog_items;";
+        await using var lockedCatalog = await lockCommand.ExecuteReaderAsync();
+        Assert.True(await lockedCatalog.ReadAsync());
+
+        using var rejected = await host.Client.PostAsJsonAsync("/api/orders", new PlaceOrderRequest(
+            quote.QuoteId, Guid.NewGuid().ToString("N"), MockPaymentScenario.Approve), JsonOptions);
+
+        Assert.True(rejected.StatusCode == HttpStatusCode.ServiceUnavailable,
+            $"Expected a retryable database response but received {(int)rejected.StatusCode}: {await rejected.Content.ReadAsStringAsync()}");
+        Assert.Equal("DATABASE_BUSY", await GetProblemCodeAsync(rejected));
+        await lockedCatalog.DisposeAsync();
+        Assert.Equal(0, await CountOrdersAsync(host));
+        Assert.Equal(0, await CountLedgerEntriesAsync(host));
+        Assert.Equal(12, await GetStockAsync(host, "turkey-melt"));
+    }
+
+    [Fact(DisplayName = "SC-E5: database write failure rolls back order and stock changes")]
+    public async Task PlaceOrder_RollsBackWhenStockWriteFails()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CheckoutDbContext>>();
+            await using var db = await factory.CreateDbContextAsync();
+            await db.Database.ExecuteSqlRawAsync("CREATE TRIGGER fail_stock_reservation BEFORE UPDATE ON catalog_items BEGIN SELECT RAISE(ABORT, 'simulated write failure'); END;");
+        }
+
+        using var failed = await host.Client.PostAsJsonAsync("/api/orders", new PlaceOrderRequest(
+            quote.QuoteId, Guid.NewGuid().ToString("N"), MockPaymentScenario.Approve), JsonOptions);
+        var body = await JsonNode.ParseAsync(await failed.Content.ReadAsStreamAsync());
+
+        Assert.Equal(HttpStatusCode.InternalServerError, failed.StatusCode);
+        Assert.Equal("UNEXPECTED_ERROR", body?["code"]?.GetValue<string>());
+        Assert.False(string.IsNullOrWhiteSpace(body?["requestId"]?.GetValue<string>()));
+        Assert.Equal(0, await CountOrdersAsync(host));
+        Assert.Equal(0, await CountLedgerEntriesAsync(host));
+        Assert.Equal(12, await GetStockAsync(host, "turkey-melt"));
+    }
+
+    [Fact(DisplayName = "SC-G1: an idempotency replay after quote cleanup returns the stored order once")]
+    public async Task PlaceOrder_ReplayAfterQuoteCleanupDoesNotChargeOrReserveAgain()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        var clock = new FixedTimeProvider(now);
+        using var host = database.StartHost(timeProvider: clock);
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+        const string key = "66666666666646668666666666666666";
+        var first = await PlaceOrderAsync(host.Client, quote.QuoteId, key, MockPaymentScenario.Approve);
+
+        clock.SetUtcNow(now.AddDays(2));
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var catalog = scope.ServiceProvider.GetRequiredService<CatalogService>();
+            Assert.Equal(1, await catalog.CleanupExpiredQuotesAsync(CancellationToken.None));
+        }
+        Assert.Equal(0, await CountQuotesAsync(host));
+
+        var replay = await PlaceOrderAsync(host.Client, quote.QuoteId, key, MockPaymentScenario.Approve);
+
+        Assert.Equal(HttpStatusCode.Created, first.Response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, replay.Response.StatusCode);
+        Assert.Equal(first.Order?.PublicReference, replay.Order?.PublicReference);
+        Assert.Equal(1, await CountOrdersAsync(host));
+        Assert.Equal(1, await CountLedgerEntriesAsync(host));
+        Assert.Equal(11, await GetStockAsync(host, "turkey-melt"));
+    }
+
+    [Fact(DisplayName = "SC-G2: SQL-looking item IDs are treated as data and do not alter catalog results")]
+    public async Task CreateQuote_SQLLookingItemIdIsRejectedWithoutChangingCatalog()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+
+        using var response = await CreateQuoteAsync(host.Client, new CartLineRequest("' OR 1=1 --", 1));
+        var menu = await host.Client.GetFromJsonAsync<MenuResponse>("/api/menu");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("ITEM_UNAVAILABLE", await GetProblemCodeAsync(response));
+        Assert.Equal(12, menu!.Categories.SelectMany(category => category.Items).Single(item => item.Id == "turkey-melt").Stock);
+        Assert.Equal(0, await CountOrdersAsync(host));
     }
 
     [Fact(DisplayName = "AC-Y7: repeated declines lock payment temporarily with Retry-After")]
@@ -866,6 +1264,14 @@ public sealed class CheckoutApiTests
         return await database.Orders.CountAsync();
     }
 
+    private static async Task<int> CountQuotesAsync(CheckoutApiHost host)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CheckoutDbContext>>();
+        await using var database = await factory.CreateDbContextAsync();
+        return await database.Quotes.CountAsync();
+    }
+
     private static async Task<int> CountLedgerEntriesAsync(CheckoutApiHost host)
     {
         await using var scope = host.Services.CreateAsyncScope();
@@ -918,6 +1324,26 @@ public sealed class CheckoutApiTests
         await database.CatalogItems
             .Where(item => item.Id == itemId)
             .ExecuteUpdateAsync(update => update.SetProperty(item => item.PriceCents, priceCents));
+    }
+
+    private static async Task SetStockAsync(CheckoutApiHost host, string itemId, int? stock)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CheckoutDbContext>>();
+        await using var database = await factory.CreateDbContextAsync();
+        await database.CatalogItems
+            .Where(item => item.Id == itemId)
+            .ExecuteUpdateAsync(update => update.SetProperty(item => item.Stock, stock));
+    }
+
+    private static async Task SetActiveAsync(CheckoutApiHost host, string itemId, bool isActive)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CheckoutDbContext>>();
+        await using var database = await factory.CreateDbContextAsync();
+        await database.CatalogItems
+            .Where(item => item.Id == itemId)
+            .ExecuteUpdateAsync(update => update.SetProperty(item => item.IsActive, isActive));
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -1097,5 +1523,9 @@ internal sealed class CapturingLoggerProvider : ILoggerProvider
 
 internal sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
 {
-    public override DateTimeOffset GetUtcNow() => utcNow;
+    private DateTimeOffset _utcNow = utcNow;
+
+    public override DateTimeOffset GetUtcNow() => _utcNow;
+
+    public void SetUtcNow(DateTimeOffset value) => _utcNow = value;
 }

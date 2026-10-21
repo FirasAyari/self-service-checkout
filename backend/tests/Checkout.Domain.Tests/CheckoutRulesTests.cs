@@ -104,6 +104,7 @@ public sealed class CheckoutRulesTests
     }
 
     [Theory]
+    [InlineData(3, 2_000, 1)]
     [InlineData(100, 800, 7)]
     [InlineData(101, 800, 7)]
     [InlineData(1000, 0, 0)]

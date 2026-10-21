@@ -314,11 +314,16 @@ export function App() {
           return
         }
       }
-      dispatch({ type: 'order-unknown', message: 'We could not confirm the response. Checking this same attempt now.' })
+      const recoveryMessage = error instanceof ApiError && error.status === 0
+        ? copy.connectionInterrupted
+        : error instanceof ApiError && error.status >= 200 && error.status < 300
+          ? error.message
+          : copy.sameAttempt
+      dispatch({ type: 'order-unknown', message: recoveryMessage })
       try { updateOrder(await api.status(key)) }
-      catch { dispatch({ type: 'order-unknown', message: 'We could not confirm the result yet. Do not pay again. We will keep checking this attempt.' }) }
+      catch { dispatch({ type: 'order-unknown', message: recoveryMessage }) }
     }
-  }, [state.quote, state.quoteNeedsConsent, state.idempotencyKey, state.scenario, updateOrder, refreshQuote, copy.updatedQuote, copy.paymentRateLimited])
+  }, [state.quote, state.quoteNeedsConsent, state.idempotencyKey, state.scenario, updateOrder, refreshQuote, copy.updatedQuote, copy.paymentRateLimited, copy.connectionInterrupted, copy.sameAttempt])
 
   const retrySameAttempt = useCallback(async () => {
     if (!state.idempotencyKey || !state.quoteId) return

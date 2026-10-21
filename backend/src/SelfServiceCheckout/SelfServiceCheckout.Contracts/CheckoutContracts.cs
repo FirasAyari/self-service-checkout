@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SelfServiceCheckout.Contracts;
 
 public sealed record MenuItemDto(
@@ -23,9 +25,12 @@ public sealed record MenuCategoryDto(string Name, IReadOnlyList<MenuItemDto> Ite
 
 public sealed record MenuResponse(string Version, IReadOnlyList<MenuCategoryDto> Categories);
 
-public sealed record CartLineRequest(string ItemId, int Quantity, IReadOnlyList<string>? OptionIds = null);
+public sealed record CartLineRequest(
+    [property: JsonRequired] string ItemId,
+    [property: JsonRequired] int Quantity,
+    IReadOnlyList<string>? OptionIds = null);
 
-public sealed record QuoteRequest(IReadOnlyList<CartLineRequest?>? Items);
+public sealed record QuoteRequest([property: JsonRequired] IReadOnlyList<CartLineRequest?>? Items);
 
 public sealed record QuoteLineDto(
     string ItemId,
@@ -52,11 +57,11 @@ public enum MockPaymentScenario
 }
 
 public sealed record PlaceOrderRequest(
-    string QuoteId,
-    string IdempotencyKey,
-    MockPaymentScenario Scenario);
+    [property: JsonRequired] string QuoteId,
+    [property: JsonRequired] string IdempotencyKey,
+    [property: JsonRequired] MockPaymentScenario Scenario);
 
-public sealed record OrderStatusRequest(string IdempotencyKey);
+public sealed record OrderStatusRequest([property: JsonRequired] string IdempotencyKey);
 
 public sealed record OrderLineStatusDto(
     string ItemId,

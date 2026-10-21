@@ -13,11 +13,17 @@ public sealed class CheckoutExceptionHandler(
         Exception exception,
         CancellationToken cancellationToken)
     {
-        var (statusCode, code, title) = exception is CheckoutException checkoutException
-            ? (ToStatusCode(checkoutException.Kind), checkoutException.Code, checkoutException.Message)
-            : (StatusCodes.Status500InternalServerError, "UNEXPECTED_ERROR", "We could not complete that request.");
+        var (statusCode, code, title) = exception switch
+        {
+            CheckoutException checkoutException => (ToStatusCode(checkoutException.Kind), checkoutException.Code, checkoutException.Message),
+            BadHttpRequestException { StatusCode: StatusCodes.Status413PayloadTooLarge } =>
+                (StatusCodes.Status413PayloadTooLarge, "REQUEST_TOO_LARGE", "The request body exceeds the allowed size."),
+            BadHttpRequestException badRequest =>
+                (badRequest.StatusCode, "INVALID_REQUEST", "The request body is invalid. Check the request fields and try again."),
+            _ => (StatusCodes.Status500InternalServerError, "UNEXPECTED_ERROR", "We could not complete that request.")
+        };
 
-        if (exception is not CheckoutException)
+        if (exception is not CheckoutException and not BadHttpRequestException)
         {
             logger.LogError(exception, "Unhandled checkout error. RequestId: {RequestId}", httpContext.TraceIdentifier);
         }

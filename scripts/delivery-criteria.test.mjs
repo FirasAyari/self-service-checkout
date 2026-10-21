@@ -83,7 +83,8 @@ test('AC-D1 the container smoke completes an order and verifies its identity aft
   assert.match(smoke, /menuImageFiles\.length !== 12/)
   assert.match(makefile, /docker-smoke:[\s\S]*?scripts\/docker-smoke\.mjs/)
   assert.match(readme, /docker compose up --build/)
-  assert.match(readme, /Docker Compose is included[\s\S]*not been run or verified here/)
+  assert.match(readme, /node scripts\/docker-smoke\.mjs/)
+  assert.match(readme, /container smoke check[\s\S]*temporary container and volume/)
   assert.doesNotMatch(readme, /make docker-smoke/)
 })
 

@@ -86,6 +86,13 @@ try {
   const adminProbe = await request('/api/admin/chaos')
   if (adminProbe.status !== 404) throw new Error(`Production demo administration returned HTTP ${adminProbe.status}, expected 404.`)
 
+  const oversizedBody = await request('/api/quotes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ padding: 'x'.repeat(20_000) }),
+  })
+  if (oversizedBody.status !== 413) throw new Error(`An oversized API body returned HTTP ${oversizedBody.status}, expected 413.`)
+
   const item = menu.categories.flatMap((category) => category.items)
     .find((candidate) => candidate.isAvailable && candidate.stock !== 0 &&
       candidate.optionGroups.filter((group) => group.isRequired).every((group) => group.options.length > 0))
@@ -147,7 +154,7 @@ try {
     throw new Error('The order identity changed after the container restart.')
   }
 
-  console.log('AC-D1/AC-D5 Docker smoke passed: packaged site and all food photos load, production forces demo approval, and the order survives restart.')
+  console.log('AC-D1/AC-D5 SC-G5 Docker smoke passed: packaged site and photos load, oversized requests are rejected, production forces demo approval, and the order survives restart.')
 } catch (error) {
   primaryFailure = error
   try { compose(['logs', '--no-color', 'checkout']) } catch { /* preserve the original smoke failure */ }
