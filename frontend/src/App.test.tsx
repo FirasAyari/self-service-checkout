@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import { api, type Menu, type OrderStatus, type Quote } from './api'
-import { isValidCardNumber } from './payment-card'
+import { getEffectivePaymentScenario, isDemoOutcomeSelectionEnabled } from './demo-outcome-selection'
 
 vi.mock('./api', () => ({
   ApiError: class ApiError extends Error {
@@ -32,21 +32,12 @@ const paidOrder: OrderStatus = {
   lines: quote.lines, totalCents: quote.totalCents, taxCents: quote.taxCents, currency: quote.currency,
 }
 
-const testCardNumber = ['4242', '4242', '4242', '4242'].join('')
-const futureExpiry = `12/${String((new Date().getFullYear() + 1) % 100).padStart(2, '0')}`
-
 async function openPaymentScreen() {
   render(<App />)
   fireEvent.click(await screen.findByRole('button', { name: 'Add Garden sandwich' }))
   fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
-  fireEvent.click(await screen.findByRole('button', { name: 'Continue to payment' }))
-  await screen.findByRole('heading', { name: 'Confirm your payment' })
-}
-
-function enterValidTestCard() {
-  fireEvent.change(screen.getByLabelText('Card number'), { target: { value: testCardNumber } })
-  fireEvent.change(screen.getByLabelText('Expiry (MM/YY)'), { target: { value: futureExpiry } })
-  fireEvent.change(screen.getByLabelText('Security code'), { target: { value: '123' } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Continue to place order' }))
+  await screen.findByRole('heading', { name: 'Place your order' })
 }
 
 beforeEach(() => {
@@ -61,65 +52,33 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('checkout client acceptance criteria', () => {
-  it('AC-Y1 validates card fields on blur and never sends or stores their values', async () => {
-    expect(isValidCardNumber(testCardNumber)).toBe(true)
-    vi.mocked(api.placeOrder).mockImplementation(async () => {
-      const fields = ['Card number', 'Expiry (MM/YY)', 'Security code'].map((label) =>
-        (screen.getByLabelText(label) as HTMLInputElement).value,
-      )
-      expect(fields.every((value) => value.length === 0)).toBe(true)
-      return paidOrder
-    })
-    await openPaymentScreen()
-    const number = screen.getByLabelText('Card number') as HTMLInputElement
-    const expiry = screen.getByLabelText('Expiry (MM/YY)') as HTMLInputElement
-    const cvc = screen.getByLabelText('Security code') as HTMLInputElement
-    const submit = screen.getByRole('button', { name: /Place demo order/i }) as HTMLButtonElement
-
-    expect(submit.disabled).toBe(true)
-    fireEvent.blur(number)
-    fireEvent.blur(expiry)
-    fireEvent.blur(cvc)
-    expect(screen.getByText('Enter a valid card number.')).toBeTruthy()
-    expect(screen.getByText('Enter a valid future expiry date (MM/YY).')).toBeTruthy()
-    expect(screen.getByText('Enter a 3 or 4 digit security code.')).toBeTruthy()
-
-    const invalidNumber = `${testCardNumber.slice(0, -1)}${(Number(testCardNumber.at(-1)) + 1) % 10}`
-    fireEvent.change(number, { target: { value: invalidNumber } })
-    fireEvent.change(expiry, { target: { value: '01/20' } })
-    fireEvent.change(cvc, { target: { value: '12' } })
-    expect(submit.disabled).toBe(true)
-    fireEvent.change(number, { target: { value: testCardNumber } })
-    fireEvent.change(expiry, { target: { value: futureExpiry } })
-    fireEvent.change(cvc, { target: { value: '123' } })
-    expect(submit.disabled).toBe(false)
-
-    fireEvent.click(submit)
-    await waitFor(() => expect(document.getElementById('payment-title')).toBeNull())
-    expect(document.body.textContent?.includes('That’s a good choice.')).toBe(true)
-    const call = vi.mocked(api.placeOrder).mock.calls[0]
-    expect(call.length === 3 && call[0] === 'quote-1' && call[2] === 'Approve').toBe(true)
-    const persisted = Object.keys(sessionStorage).map((key) => sessionStorage.getItem(key) ?? '').join(' ')
-    expect(!persisted.includes(testCardNumber) && !persisted.includes(futureExpiry) && !persisted.includes('123')).toBe(true)
-    expect(screen.queryByLabelText('Card number')).toBeNull()
+  it('AC-D5: outcome selection is limited to development and test builds', () => {
+    expect(isDemoOutcomeSelectionEnabled('production')).toBe(false)
+    expect(isDemoOutcomeSelectionEnabled('development')).toBe(true)
+    expect(isDemoOutcomeSelectionEnabled('test')).toBe(true)
+    expect(isDemoOutcomeSelectionEnabled('e2e')).toBe(true)
+    expect(getEffectivePaymentScenario('production', 'StillUnknown')).toBe('Approve')
+    expect(getEffectivePaymentScenario('development', 'StillUnknown')).toBe('StillUnknown')
   })
 
-  it('AC-Y2 spaces the card number, inserts the expiry slash, caps pasted digits, and requests numeric keyboards', async () => {
+  it('AC-D7: places a simulated order without requesting payment details', async () => {
     await openPaymentScreen()
-    const number = screen.getByLabelText('Card number') as HTMLInputElement
-    const expiry = screen.getByLabelText('Expiry (MM/YY)') as HTMLInputElement
-    const cvc = screen.getByLabelText('Security code') as HTMLInputElement
-    fireEvent.change(number, { target: { value: '123456789012345678901234' } })
-    fireEvent.change(expiry, { target: { value: '1234' } })
-    fireEvent.change(cvc, { target: { value: '12345' } })
+    expect(screen.queryByLabelText(/card number|expiry|security code/i)).toBeNull()
+    const submit = screen.getByRole('button', { name: /Place demo order/i }) as HTMLButtonElement
+    expect(submit.disabled).toBe(false)
+    fireEvent.click(submit)
+    await waitFor(() => expect(api.placeOrder).toHaveBeenCalledTimes(1))
+    const call = vi.mocked(api.placeOrder).mock.calls[0]
+    expect(call.length).toBe(3)
+    expect(call[0]).toBe('quote-1')
+    expect(call[2]).toBe('Approve')
+  })
 
-    expect(number.value === '1234 5678 9012 3456 789').toBe(true)
-    expect(expiry.value === '12/34').toBe(true)
-    expect(cvc.value === '1234').toBe(true)
-    for (const field of [number, expiry, cvc]) expect(field.inputMode).toBe('numeric')
-    expect(number.maxLength).toBe(23)
-    expect(expiry.maxLength).toBe(5)
-    expect(cvc.maxLength).toBe(4)
+  it('AC-D7: the simulated checkout renders no payment credential inputs', async () => {
+    await openPaymentScreen()
+    expect(screen.queryByLabelText(/card number|expiry|security code/i)).toBeNull()
+    expect(document.querySelectorAll('input').length).toBe(0)
+    expect((screen.getByRole('button', { name: /Place demo order/i }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('AC-M6 / AC-R6 lets the customer choose options and sends their IDs for server pricing', async () => {
@@ -235,7 +194,7 @@ describe('checkout client acceptance criteria', () => {
     })
     expect(screen.getByRole('checkbox', { name: 'I accept the updated total of $9.00' })).toBeTruthy()
     expect(screen.getByText('Price or availability was updated.')).toBeTruthy()
-    expect((screen.getByRole('button', { name: 'Continue to payment' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Continue to place order' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('AC-C4 removes the final unit and lets the customer undo within five seconds', async () => {
@@ -266,8 +225,7 @@ describe('checkout client acceptance criteria', () => {
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Add Garden sandwich' }))
     fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Continue to payment' }))
-    enterValidTestCard()
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue to place order' }))
     fireEvent.click(await screen.findByRole('button', { name: /Place demo order/i }))
     expect(await screen.findByRole('heading', { name: 'That’s a good choice.' })).toBeTruthy()
     expect(sessionStorage.getItem('goodtable.attempt.v1')).toBeNull()
@@ -279,8 +237,7 @@ describe('checkout client acceptance criteria', () => {
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Add Garden sandwich' }))
     fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Continue to payment' }))
-    enterValidTestCard()
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue to place order' }))
     const submit = await screen.findByRole('button', { name: /Place demo order/i })
 
     act(() => { fireEvent.click(submit); fireEvent.click(submit) })
@@ -321,19 +278,18 @@ describe('checkout client acceptance criteria', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Add Garden sandwich' }))
     fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
     const consent = await screen.findByRole('checkbox', { name: 'I accept the updated total of $9.00' })
-    expect((screen.getByRole('button', { name: 'Continue to payment' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Continue to place order' }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(consent)
-    expect((screen.getByRole('button', { name: 'Continue to payment' }) as HTMLButtonElement).disabled).toBe(false)
-    fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }))
-    expect(await screen.findByRole('heading', { name: 'Confirm your payment' })).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Continue to place order' }) as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Continue to place order' }))
+    expect(await screen.findByRole('heading', { name: 'Place your order' })).toBeTruthy()
   })
 
   it('AC-Y4 / AC-O5 shows the server order summary and pickup number after approval', async () => {
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Add Garden sandwich' }))
     fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Continue to payment' }))
-    enterValidTestCard()
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue to place order' }))
     fireEvent.click(await screen.findByRole('button', { name: /Place demo order/i }))
     expect(await screen.findByRole('heading', { name: 'That’s a good choice.' })).toBeTruthy()
     expect(screen.getByText('8')).toBeTruthy()

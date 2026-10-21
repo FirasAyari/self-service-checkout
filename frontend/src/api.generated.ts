@@ -1,7 +1,4 @@
-/* Generated from tests/SelfServiceCheckout.Api.Tests/Contracts/openapi.v1.json. Do not edit. */
-export type AnonymousTypeOfstring = {
-  "status": null | string
-}
+/* Generated from backend/tests/SelfServiceCheckout.Api.Tests/Contracts/openapi.v1.json. Do not edit. */
 export type CartLineRequest = {
   "itemId": string
   "quantity": number
@@ -18,6 +15,9 @@ export type DemoChaosRequest = {
   "scenarioOverride": null | MockPaymentScenario
   "mode"?: null | DemoChaosMode
   "latencyMilliseconds"?: number
+}
+export type HealthEndpointResponse = {
+  "status": string
 }
 export type MenuCategoryDto = {
   "name": string

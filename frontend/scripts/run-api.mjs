@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const projectRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)))
-const projectFile = resolve(projectRoot, 'src/SelfServiceCheckout/SelfServiceCheckout/SelfServiceCheckout.csproj')
+const projectFile = resolve(projectRoot, 'backend/src/SelfServiceCheckout/SelfServiceCheckout/SelfServiceCheckout.csproj')
 const localDotnet = resolve(homedir(), '.dotnet', process.platform === 'win32' ? 'dotnet.exe' : 'dotnet')
 const executable = existsSync(localDotnet) ? localDotnet : 'dotnet'
 const child = spawn(executable, ['run', '--project', projectFile, '--launch-profile', 'http'], {
