@@ -14,12 +14,12 @@ public sealed class CheckoutExceptionHandler(
         CancellationToken cancellationToken)
     {
         var (statusCode, code, title) = exception is CheckoutException checkoutException
-            ? (checkoutException.StatusCode, checkoutException.Code, checkoutException.Message)
+            ? (ToStatusCode(checkoutException.Kind), checkoutException.Code, checkoutException.Message)
             : (StatusCodes.Status500InternalServerError, "UNEXPECTED_ERROR", "We could not complete that request.");
 
         if (exception is not CheckoutException)
         {
-            logger.LogError("Unhandled checkout error. RequestId: {RequestId}", httpContext.TraceIdentifier);
+            logger.LogError(exception, "Unhandled checkout error. RequestId: {RequestId}", httpContext.TraceIdentifier);
         }
 
         httpContext.Response.StatusCode = statusCode;
@@ -45,4 +45,15 @@ public sealed class CheckoutExceptionHandler(
             ProblemDetails = problem
         });
     }
+
+    private static int ToStatusCode(CheckoutFailureKind kind) => kind switch
+    {
+        CheckoutFailureKind.InvalidRequest => StatusCodes.Status400BadRequest,
+        CheckoutFailureKind.Conflict => StatusCodes.Status409Conflict,
+        CheckoutFailureKind.NotFound => StatusCodes.Status404NotFound,
+        CheckoutFailureKind.Unavailable => StatusCodes.Status503ServiceUnavailable,
+        CheckoutFailureKind.RateLimited => StatusCodes.Status429TooManyRequests,
+        CheckoutFailureKind.Unprocessable => StatusCodes.Status422UnprocessableEntity,
+        _ => StatusCodes.Status500InternalServerError
+    };
 }

@@ -1,10 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using SelfServiceCheckout.Application;
 using SelfServiceCheckout.Contracts;
-using SelfServiceCheckout.Data;
 
 namespace SelfServiceCheckout.Api;
 
@@ -29,7 +27,7 @@ public static class DemoAdminEndpoints
         group.MapPatch("/items/{itemId}", async (
                 string itemId,
                 DemoCatalogPatchRequest request,
-                IDbContextFactory<CheckoutDbContext> databaseFactory,
+                IDemoAdministrationService administration,
                 CancellationToken cancellationToken) =>
             {
                 if (request.PriceCents is <= 0 || request.Stock is < 0 ||
@@ -38,40 +36,37 @@ public static class DemoAdminEndpoints
                     return Results.BadRequest(new { code = "INVALID_CATALOG_PATCH", message = "Provide a valid price, stock, availability, or clearStock value." });
                 }
 
-                await using var database = await databaseFactory.CreateDbContextAsync(cancellationToken);
-                var item = await database.CatalogItems.SingleOrDefaultAsync(row => row.Id == itemId, cancellationToken);
-                if (item is null)
+                var updated = await administration.UpdateCatalogItemAsync(
+                    itemId,
+                    request.PriceCents,
+                    request.Stock,
+                    request.IsActive,
+                    request.ClearStock,
+                    cancellationToken);
+                if (!updated)
                 {
                     return Results.NotFound(new { code = "ITEM_NOT_FOUND", message = "The menu item was not found." });
                 }
 
-                if (request.PriceCents is long priceCents) item.PriceCents = priceCents;
-                if (request.Stock is int stock) item.Stock = stock;
-                if (request.ClearStock) item.Stock = null;
-                if (request.IsActive is bool isActive) item.IsActive = isActive;
-                await database.SaveChangesAsync(cancellationToken);
                 return Results.NoContent();
             })
             .WithName("DemoUpdateMenuItem")
             .Accepts<DemoCatalogPatchRequest>("application/json")
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .RequireRateLimiting("admin");
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapPost("/reset", async (
-                IDbContextFactory<CheckoutDbContext> databaseFactory,
+                IDemoAdministrationService administration,
                 DemoChaosState chaosState,
                 CancellationToken cancellationToken) =>
             {
-                await using var database = await databaseFactory.CreateDbContextAsync(cancellationToken);
-                await DatabaseInitializer.ResetDemoDataAsync(database, cancellationToken);
+                await administration.ResetAsync(cancellationToken);
                 chaosState.SetConfiguration(new DemoChaosConfiguration(null, null, 0));
                 return TypedResults.NoContent();
             })
             .WithName("DemoReset")
-            .Produces(StatusCodes.Status204NoContent)
-            .RequireRateLimiting("admin");
+            .Produces(StatusCodes.Status204NoContent);
 
         group.MapPost("/chaos", (DemoChaosRequest request, DemoChaosState chaosState) =>
             {
@@ -104,8 +99,7 @@ public static class DemoAdminEndpoints
             .WithName("DemoSetChaos")
             .Accepts<DemoChaosRequest>("application/json")
             .Produces(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .RequireRateLimiting("admin");
+            .ProducesProblem(StatusCodes.Status400BadRequest);
 
         return endpoints;
     }
