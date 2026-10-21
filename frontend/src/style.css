@@ -28,7 +28,7 @@ a { color: inherit; }
 .skip-link:focus { transform: translateY(0); }
 .topbar { height: 82px; padding: 0 max(6.2vw, calc((100vw - 1240px) / 2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(57, 76, 58, .11); background: rgba(248, 247, 241, .92); }
 .brand { display: flex; align-items: center; gap: 7px; color: #26342a; text-decoration: none; white-space: nowrap; }
-.brand-mark { display: block; width: 19px; height: 23px; flex: 0 0 auto; }
+.brand-mark { display: block; width: 24px; height: 24px; flex: 0 0 auto; object-fit: contain; }
 .brand-wordmark { font-family: Georgia, 'Times New Roman', serif; font-size: 27px; font-weight: 700; letter-spacing: -1.6px; line-height: 1; }
 .topbar-right { display: flex; align-items: center; gap: 28px; }
 .service-pill { display: flex; align-items: center; gap: 9px; padding: 9px 14px; border: 1px solid #dce4d8; border-radius: 100px; color: #49604c; font-size: 12px; font-weight: 600; background: #f1f4ed; }
@@ -204,7 +204,7 @@ h1, h2 { font-family: Fraunces, Georgia, serif; font-weight: 600; letter-spacing
 @media (max-width: 500px) {
   .topbar { padding: 0 17px; }
   .brand { gap: 5px; }
-  .brand-mark { width: 16px; height: 20px; }
+  .brand-mark { width: 20px; height: 20px; }
   .brand-wordmark { font-size: 21px; letter-spacing: -1.2px; }
   .service-pill { gap: 7px; font-size: 0; }
   .service-pill .status-dot { font-size: 10px; }
@@ -258,7 +258,7 @@ h1, h2 { font-family: Fraunces, Georgia, serif; font-weight: 600; letter-spacing
 }
 @media (max-width: 350px) {
   .brand { gap: 4px; }
-  .brand-mark { width: 14px; height: 18px; }
+  .brand-mark { width: 18px; height: 18px; }
   .brand-wordmark { font-size: 19px; letter-spacing: -1px; }
   .topbar-right { gap: 5px; }
   .service-pill { gap: 5px; padding: 7px; }

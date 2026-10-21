@@ -35,6 +35,7 @@ test('AC-D1 setup and development entry points are wired to the API and frontend
   assert.doesNotMatch(workflow, /run:\s*make\b/)
   assert.match(workflow, /node scripts\/dev-smoke\.mjs/)
   assert.match(workflow, /Checkout__DatabasePath: \$\{\{ runner\.temp \}\}\/checkout-dev-smoke\.db/)
+  assert.match(workflow, /uses: actions\/upload-artifact@v7/)
   assert.match(devSmoke, /\/healthz/)
   assert.match(devSmoke, /127\.0\.0\.1:5173/)
 })
@@ -64,9 +65,10 @@ test('AC-D1 Docker builds the full checkout and persists its SQLite data', async
   assert.match(runbook, /make docker-smoke/)
 })
 
-test('AC-D1 the container smoke completes an order and verifies its identity after restart', async () => {
-  const [smoke, makefile, readme] = await Promise.all([
+test('AC-D1 the container smoke checks the current brand, completes an order, and verifies its identity after restart', async () => {
+  const [smoke, html, makefile, readme] = await Promise.all([
     read('scripts/docker-smoke.mjs'),
+    read('frontend/index.html'),
     read('Makefile'),
     read('README.md'),
   ])
@@ -79,6 +81,9 @@ test('AC-D1 the container smoke completes an order and verifies its identity aft
   assert.match(smoke, /compose\(\['restart', 'checkout'\]\)/)
   assert.match(smoke, /publicReference !== order\.publicReference/)
   assert.match(smoke, /images\/menu\/turkey-melt\.jpg/)
+  assert.match(smoke, /Good Table\\s\+—\\s\+Fresh food, good vibes/)
+  assert.match(html, /<title>Good Table — Fresh food, good vibes<\/title>/)
+  assert.doesNotMatch(smoke, /includes\('Goodtable'\)/)
   assert.match(smoke, /scenario: 'Decline'/)
   assert.match(smoke, /adminProbe\.status !== 404/)
   assert.match(smoke, /menuImageFiles\.length !== 12/)
@@ -149,7 +154,7 @@ test('AC-D2 documented verification commands and CI cover backend, frontend, bro
   assert.match(workflow, /npm run build --prefix frontend/)
   assert.match(workflow, /npx playwright install --with-deps chromium/)
   assert.match(workflow, /node scripts\/run-e2e\.mjs/)
-  assert.match(workflow, /if: failure\(\)\s*uses: actions\/upload-artifact@v4/)
+  assert.match(workflow, /if: failure\(\)\s*uses: actions\/upload-artifact@v7/)
   assert.match(workflow, /traceability\.mjs --strict/)
   assert.doesNotMatch(browserConfig, /retries:/)
   assert.doesNotMatch(productionBrowserConfig, /retries:/)

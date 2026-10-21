@@ -1,5 +1,20 @@
 import { expect, test } from '@playwright/test'
 
+const expectedMenuPhotos = {
+  'Turkey melt': '/images/menu/turkey-melt.jpg',
+  'Garden wrap': '/images/menu/garden-wrap.jpg',
+  'Chicken club': '/images/menu/chicken-club.jpg',
+  'Tomato panini': '/images/menu/tomato-panini.jpg',
+  'Green grain bowl': '/images/menu/grain-bowl.jpg',
+  'Chicken harvest bowl': '/images/menu/chicken-bowl.jpg',
+  'Falafel bowl': '/images/menu/falafel-bowl.jpg',
+  'Soup of the day': '/images/menu/soup-cup.jpg',
+  'Sparkling water': '/images/menu/sparkling-water.jpg',
+  'House iced tea': '/images/menu/iced-tea.jpg',
+  'Cold brew': '/images/menu/cold-brew.jpg',
+  'Fresh lemonade': '/images/menu/lemonade.jpg',
+}
+
 test('AC-D5 AC-D7 production server forces simulated approval, ships strict CSP, and serves local imagery; AC-U1', async ({ page }) => {
   const documentResponse = await page.goto('/')
   expect(documentResponse).not.toBeNull()
@@ -11,8 +26,19 @@ test('AC-D5 AC-D7 production server forces simulated approval, ships strict CSP,
   expect(contentSecurityPolicy).not.toContain('data:')
 
   await expect(page.locator('[style]')).toHaveCount(0)
+  const brandLink = page.getByRole('link', { name: 'Good Table — Fresh food, good vibes' })
+  const brandMark = brandLink.locator('img')
+  await expect(brandMark).toHaveAttribute('src', '/goodtable-mark.png')
+  await expect(brandMark).toHaveAttribute('alt', '')
+  await expect(page.locator('.welcome-photo')).toHaveAttribute('src', '/images/hero-grain-bowl.jpg')
+  const menuPhotos = page.locator('.menu-card .food-art img')
+  await expect(menuPhotos).toHaveCount(12)
+  const renderedMenuPhotos = await menuPhotos.evaluateAll((images) => Object.fromEntries(images.map((image) => {
+    const itemName = image.closest('.menu-card')?.querySelector('h3')?.textContent?.trim() ?? ''
+    return [itemName, new URL(image.src).pathname]
+  })))
+  expect(renderedMenuPhotos).toEqual(expectedMenuPhotos)
   const photos = page.locator('img')
-  await expect(photos).toHaveCount(14)
   const allPhotosLoaded = await photos.evaluateAll(async (images) => {
     await Promise.all(images.map(async (image) => {
       image.loading = 'eager'
@@ -21,7 +47,22 @@ test('AC-D5 AC-D7 production server forces simulated approval, ships strict CSP,
     return images.every((image) => image.naturalWidth > 0)
   })
   expect(allPhotosLoaded).toBe(true)
-  await expect(page.locator('link[rel="icon"][href="/favicon.svg"]')).toHaveCount(1)
+  const iconLinks = [
+    ['image/svg+xml', '/favicon.svg'],
+    ['image/png', '/favicon.png'],
+  ] as const
+  for (const [type, path] of iconLinks) {
+    const iconLink = page.locator(`link[rel="icon"][type="${type}"]`)
+    await expect(iconLink).toHaveAttribute('href', path)
+    const iconResponse = await page.request.get(new URL(path, page.url()).href)
+    expect(iconResponse.ok()).toBe(true)
+    expect(iconResponse.headers()['content-type']).toContain(type === 'image/svg+xml' ? 'image/svg+xml' : 'image/png')
+  }
+  const appleTouchIcon = page.locator('link[rel="apple-touch-icon"]')
+  await expect(appleTouchIcon).toHaveAttribute('href', '/apple-touch-icon.png')
+  const appleTouchResponse = await page.request.get(new URL('/apple-touch-icon.png', page.url()).href)
+  expect(appleTouchResponse.ok()).toBe(true)
+  expect(appleTouchResponse.headers()['content-type']).toContain('image/png')
 
   await page.getByRole('button', { name: 'Add Turkey melt' }).click()
   await page.getByRole('button', { name: 'Review order' }).click()

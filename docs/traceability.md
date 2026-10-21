@@ -53,7 +53,7 @@ Use `make trace` for the strict gate. Each `Required` criterion needs the ID in 
 | AC-D5 | Production checkout hides the simulated outcome chooser and forces standard simulated approval in both client and server. | BR-X7 | SC-G8 | Required |
 | AC-D6 | Expired quote cleanup retains a 24-hour window and deletes at most 500 stale quotes per batch. | BR-X8 | SC-G9 | Required |
 | AC-D7 | Simulated checkout collects no payment details and lets the customer place a demo order. | BR-Y1, BR-Y2, BR-X3 | SC-B4, SC-B5 | Required |
-| AC-U1 | Goodtable mark/favicon, hero, and every catalog item photo load from packaged same-origin assets. | BR-U1 | SC-H1 | Required |
+| AC-U1 | Good Table mark, favicon, hero, and every catalog item photo load from packaged same-origin assets. | BR-U1 | SC-H1 | Required |
 | AC-G1 | Rejected request data containing a card-like value is absent from logs and error responses. | BR-X3 | SC-G4 | Required |
 
 ## Plan clauses kept out of scope

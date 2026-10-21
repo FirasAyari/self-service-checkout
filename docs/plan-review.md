@@ -21,7 +21,7 @@ Reviewed against the latest “Self-Service Checkout — Implementation Plan (1)
 7. A definite decline lockout is persisted per kiosk: five declines in ten minutes lock payment for 60 seconds and return `Retry-After`. Optional catalog/reset/chaos endpoints are mapped only in Development, are off by default, and require an explicitly configured admin token of at least 32 characters. Chaos presets cover latency, decline, approval-then-unknown, no-ledger unknown, response loss, and the post-reservation crash boundary.
 8. Low stock is announced at five or fewer remaining units, matching BR-S4.
 9. Production hides demo outcome controls and the API forces the standard simulated approval. Expired quote records are retained for 24 hours, then cleaned in bounded batches of 500; the maintenance worker runs cleanup every 15 minutes.
-10. The Goodtable brand mark, favicon, hero, and 12 menu photos are packaged as same-origin assets. The Production browser check runs the ASP.NET app in Production, checks its strict response CSP, decodes all 14 images without third-party hosts, and completes a simulated order against temporary SQLite data.
+10. The Good Table brand mark, favicon, hero, and 12 menu photos are packaged as same-origin assets. The Production browser check runs the ASP.NET app in Production, checks its strict response CSP, decodes the brand mark, hero, and all 12 menu photos without third-party hosts, and completes a simulated order against temporary SQLite data.
 
 ## Risks and remaining scope
 

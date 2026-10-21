@@ -106,4 +106,4 @@ Tags: **U** unit, **I** API/integration, **E** browser end-to-end.
 
 | ID | Situation | Expected counter | Type |
 | --- | --- | --- | --- |
-| SC-H1 | Customer opens the menu on desktop or mobile | Goodtable branding, a food hero, and a matching photo for every catalog item load from same-origin assets; assistive technology gets the item name from the adjacent heading without redundant image text. | E |
+| SC-H1 | Customer opens the menu on desktop or mobile | Good Table branding, a food hero, and a matching photo for every catalog item load from same-origin assets; assistive technology gets the item name from the adjacent heading without redundant image text. | E |

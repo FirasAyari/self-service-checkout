@@ -1,4 +1,4 @@
-# Goodtable self-service checkout
+# Good Table self-service checkout
 
 [![CI](https://github.com/FirasAyari/self-service-checkout/actions/workflows/ci.yml/badge.svg)](https://github.com/FirasAyari/self-service-checkout/actions/workflows/ci.yml)
 

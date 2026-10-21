@@ -71,7 +71,10 @@ try {
     request('/health/live'),
   ])
 
-  if (!home.ok || !(await home.text()).includes('Goodtable')) throw new Error('The container did not serve the packaged checkout page.')
+  const homeHtml = await home.text()
+  if (!home.ok || !/<title>Good Table\s+—\s+Fresh food, good vibes<\/title>/i.test(homeHtml)) {
+    throw new Error('The container did not serve the Good Table checkout page.')
+  }
   if (!favicon.ok || !image.ok || !live.ok) throw new Error('The container did not serve the favicon, menu image, and liveness endpoint.')
   if (!Array.isArray(menu.categories) || menu.categories.length < 3) throw new Error('The container menu response is incomplete.')
 
