@@ -8,7 +8,7 @@
     "/healthz": {
       "get": {
         "tags": [
-          "SelfServiceCheckout"
+          "Program"
         ],
         "operationId": "Health",
         "responses": {
@@ -17,7 +17,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AnonymousTypeOfstring"
+                  "$ref": "#/components/schemas/HealthEndpointResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthEndpointResponse"
                 }
               }
             }
@@ -325,21 +335,6 @@
   },
   "components": {
     "schemas": {
-      "AnonymousTypeOfstring": {
-        "required": [
-          "status"
-        ],
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        },
-        "additionalProperties": false
-      },
       "CartLineRequest": {
         "required": [
           "itemId",
@@ -451,6 +446,18 @@
             ],
             "format": "int32",
             "default": 3000
+          }
+        },
+        "additionalProperties": false
+      },
+      "HealthEndpointResponse": {
+        "required": [
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -924,7 +931,7 @@
   },
   "tags": [
     {
-      "name": "SelfServiceCheckout"
+      "name": "Program"
     },
     {
       "name": "Checkout"

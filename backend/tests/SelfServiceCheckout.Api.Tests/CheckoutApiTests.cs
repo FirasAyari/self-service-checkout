@@ -12,10 +12,13 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SelfServiceCheckout.Application;
 using SelfServiceCheckout.Contracts;
 using SelfServiceCheckout.Data;
+using SelfServiceCheckout.Infrastructure.Sqlite.Services;
 using Xunit;
 
 namespace SelfServiceCheckout.Api.Tests;
@@ -38,6 +41,205 @@ public sealed class CheckoutApiTests
         Assert.Equal(0, items["tomato-panini"].Stock);
         Assert.True(items["turkey-melt"].IsAvailable);
         Assert.Equal(12, items["turkey-melt"].Stock);
+    }
+
+    [Fact(DisplayName = "EVAL-PROD-01: readiness checks the checkout database while liveness remains independent")]
+    public async Task HealthEndpoints_ReadinessTracksDatabaseAndLivenessDoesNot()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+
+        using var initialReady = await host.Client.GetAsync("/health/ready");
+        Assert.Equal(HttpStatusCode.OK, initialReady.StatusCode);
+        Assert.Equal("ready", (await initialReady.Content.ReadFromJsonAsync<HealthEndpointResponse>())?.Status);
+
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CheckoutDbContext>>();
+            await using var db = await factory.CreateDbContextAsync();
+            await db.Database.ExecuteSqlRawAsync("DROP TABLE catalog_items");
+        }
+
+        using var live = await host.Client.GetAsync("/health/live");
+        Assert.Equal(HttpStatusCode.OK, live.StatusCode);
+        Assert.Equal("live", (await live.Content.ReadFromJsonAsync<HealthEndpointResponse>())?.Status);
+
+        using var ready = await host.Client.GetAsync("/health/ready");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, ready.StatusCode);
+        Assert.Equal("not-ready", (await ready.Content.ReadFromJsonAsync<HealthEndpointResponse>())?.Status);
+        using var legacyReady = await host.Client.GetAsync("/healthz");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, legacyReady.StatusCode);
+        Assert.Equal("not-ready", (await legacyReady.Content.ReadFromJsonAsync<HealthEndpointResponse>())?.Status);
+    }
+
+    [Fact(DisplayName = "EVAL-PROD-04: only explicitly trusted proxies can set the client IP used for limits")]
+    public async Task ForwardedClientAddress_IsAcceptedOnlyFromConfiguredProxy()
+    {
+        using var untrustedDatabase = new TemporaryCheckoutDatabase();
+        using var untrustedHost = untrustedDatabase.StartHost();
+
+        for (var index = 1; index <= 11; index++)
+        {
+            using var response = await SubmitInvalidOrderWithForwardedAddressAsync(untrustedHost.Client, $"192.0.2.{index}");
+            Assert.Equal(index == 11 ? HttpStatusCode.TooManyRequests : HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        using var trustedDatabase = new TemporaryCheckoutDatabase();
+        using var trustedHost = trustedDatabase.StartHost(additionalEnvironment: new Dictionary<string, string?>
+        {
+            ["ReverseProxy__KnownProxies__0"] = "127.0.0.1"
+        });
+
+        for (var index = 1; index <= 11; index++)
+        {
+            using var response = await SubmitInvalidOrderWithForwardedAddressAsync(trustedHost.Client, $"198.51.100.{index}");
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+    }
+
+    [Fact(DisplayName = "EVAL-PROD-03: business time zone configuration is checked against the host")]
+    public void CheckoutOptions_RejectsInvalidBusinessTimeZone()
+    {
+        Assert.True(CheckoutOptions.IsValidBusinessTimeZone("America/Sao_Paulo"));
+        Assert.True(CheckoutOptions.IsValidBusinessTimeZone("UTC"));
+        Assert.False(CheckoutOptions.IsValidBusinessTimeZone(""));
+        Assert.False(CheckoutOptions.IsValidBusinessTimeZone("Invalid/Not_A_Zone"));
+    }
+
+    [Fact(DisplayName = "EVAL-PROD-03: unsupported business time zone prevents API startup")]
+    public void Startup_RejectsUnsupportedBusinessTimeZone()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+
+        var exception = Assert.ThrowsAny<OptionsValidationException>(() => database.StartHost(
+            additionalEnvironment: new Dictionary<string, string?>
+            {
+                ["Checkout__BusinessTimeZone"] = "Invalid/Not_A_Zone"
+            }));
+
+        Assert.Contains("BusinessTimeZone", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "EVAL-PROD-03: pickup date follows the configured store time zone")]
+    public async Task PickupNumber_UsesConfiguredBusinessTimeZone()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        var fixedTime = new FixedTimeProvider(new DateTimeOffset(2026, 1, 2, 1, 0, 0, TimeSpan.Zero));
+        using var host = database.StartHost(
+            additionalEnvironment: new Dictionary<string, string?>
+            {
+                ["Checkout__BusinessTimeZone"] = "America/Sao_Paulo"
+            },
+            timeProvider: fixedTime);
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+
+        var result = await PlaceOrderAsync(host.Client, quote.QuoteId, Guid.NewGuid().ToString("N"), MockPaymentScenario.Approve);
+
+        Assert.Equal(HttpStatusCode.Created, result.Response.StatusCode);
+        Assert.Equal(1, result.Order?.PickupNumber);
+        await using var scope = host.Services.CreateAsyncScope();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CheckoutDbContext>>();
+        await using var db = await factory.CreateDbContextAsync();
+        Assert.Equal("2026-01-01", (await db.PickupCounters.SingleAsync()).BusinessDate);
+    }
+
+    [Fact(DisplayName = "EVAL-PROD-02 AC-D5: production fixes the demo outcome and exposes no demo controls")]
+    public async Task ProductionMode_KeepsPaymentSimulationAndHidesDemoAdministration()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost(environmentName: "Production");
+
+        var checkoutOptions = host.Services.GetRequiredService<IOptions<CheckoutOptions>>().Value;
+        var demoOptions = host.Services.GetRequiredService<IOptions<DemoModeOptions>>().Value;
+        using var menu = await host.Client.GetAsync("/api/menu");
+        using var admin = await host.Client.PostAsync("/api/admin/reset", content: null);
+
+        Assert.True(checkoutOptions.MockPaymentsEnabled);
+        Assert.False(demoOptions.Enabled);
+        Assert.Equal(HttpStatusCode.OK, menu.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, admin.StatusCode);
+
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("turkey-melt", 1));
+        var order = await PlaceOrderAsync(
+            host.Client,
+            quote.QuoteId,
+            Guid.NewGuid().ToString("N"),
+            MockPaymentScenario.StillUnknown);
+
+        Assert.Equal(HttpStatusCode.Created, order.Response.StatusCode);
+        Assert.Equal("PAID", order.Order?.Status);
+        Assert.Equal(11, await GetStockAsync(host, "turkey-melt"));
+    }
+
+    [Fact(DisplayName = "AC-D6: expired quote cleanup deletes only a bounded stale batch")]
+    public async Task QuoteCleanup_RemovesBoundedExpiredBatchAndRetainsRecentQuotes()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
+        using var host = database.StartHost(timeProvider: new FixedTimeProvider(now));
+        await using var scope = host.Services.CreateAsyncScope();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CheckoutDbContext>>();
+        await using var db = await factory.CreateDbContextAsync();
+        var oldExpiry = now.AddDays(-2).ToUnixTimeMilliseconds();
+        var recentExpiry = now.AddHours(-1).ToUnixTimeMilliseconds();
+        db.Quotes.AddRange(Enumerable.Range(0, 501).Select(index => new QuoteEntity
+        {
+            Id = $"expired-{index:D3}",
+            CreatedAtUnixMs = oldExpiry - 120_000,
+            ExpiresAtUnixMs = oldExpiry,
+            TotalCents = 500,
+            TaxCents = 40,
+            LinesJson = "[]"
+        }));
+        db.Quotes.Add(new QuoteEntity
+        {
+            Id = "recently-expired",
+            CreatedAtUnixMs = recentExpiry - 120_000,
+            ExpiresAtUnixMs = recentExpiry,
+            TotalCents = 500,
+            TaxCents = 40,
+            LinesJson = "[]"
+        });
+        await db.SaveChangesAsync();
+
+        var catalog = scope.ServiceProvider.GetRequiredService<CatalogService>();
+        var deleted = await catalog.CleanupExpiredQuotesAsync(CancellationToken.None);
+
+        Assert.Equal(500, deleted);
+        Assert.Equal(1, await db.Quotes.CountAsync(quote => quote.Id.StartsWith("expired-")));
+        Assert.True(await db.Quotes.AnyAsync(quote => quote.Id == "recently-expired"));
+    }
+
+    [Fact(DisplayName = "EVAL-PROD-07: API responses include kiosk security and privacy headers")]
+    public async Task ApiResponses_UseSecurityHeadersAndPreventCaching()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+
+        using var response = await host.Client.GetAsync("/api/menu");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+        Assert.Equal("DENY", Assert.Single(response.Headers.GetValues("X-Frame-Options")));
+        Assert.Equal("no-referrer", Assert.Single(response.Headers.GetValues("Referrer-Policy")));
+        Assert.Equal("no-store", Assert.Single(response.Headers.GetValues("Cache-Control")));
+        var contentSecurityPolicy = Assert.Single(response.Headers.GetValues("Content-Security-Policy"));
+        Assert.Contains("frame-ancestors 'none'", contentSecurityPolicy, StringComparison.Ordinal);
+        Assert.Contains("font-src 'self'", contentSecurityPolicy, StringComparison.Ordinal);
+        Assert.Contains("img-src 'self'", contentSecurityPolicy, StringComparison.Ordinal);
+        Assert.Contains("style-src 'self'", contentSecurityPolicy, StringComparison.Ordinal);
+        Assert.DoesNotContain("'unsafe-inline'", contentSecurityPolicy, StringComparison.Ordinal);
+        Assert.DoesNotContain("data:", contentSecurityPolicy, StringComparison.Ordinal);
+    }
+
+    private static async Task<HttpResponseMessage> SubmitInvalidOrderWithForwardedAddressAsync(HttpClient client, string forwardedAddress)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/orders")
+        {
+            Content = JsonContent.Create(new { quoteId = "", idempotencyKey = "", scenario = "Approve" })
+        };
+        request.Headers.TryAddWithoutValidation("X-Forwarded-For", forwardedAddress);
+        return await client.SendAsync(request);
     }
 
     [Fact(DisplayName = "AC-M6 AC-R6: menu add-ons are server-priced and included in the order receipt")]
@@ -246,7 +448,7 @@ public sealed class CheckoutApiTests
         var status = await host.Client.PostAsJsonAsync("/api/orders/status", new OrderStatusRequest(key));
         await using (var scope = host.Services.CreateAsyncScope())
         {
-            var checkout = scope.ServiceProvider.GetRequiredService<CheckoutService>();
+            var checkout = scope.ServiceProvider.GetRequiredService<IPaymentReconciliationService>();
             await checkout.ReconcilePendingAsync(CancellationToken.None);
         }
         var reconciledStatus = await host.Client.PostAsJsonAsync("/api/orders/status", new OrderStatusRequest(key));
@@ -283,7 +485,7 @@ public sealed class CheckoutApiTests
         using var restartedHost = database.StartHost();
         await using (var scope = restartedHost.Services.CreateAsyncScope())
         {
-            var checkout = scope.ServiceProvider.GetRequiredService<CheckoutService>();
+            var checkout = scope.ServiceProvider.GetRequiredService<IPaymentReconciliationService>();
             await checkout.ReconcilePendingAsync(CancellationToken.None);
         }
         var status = await restartedHost.Client.PostAsJsonAsync("/api/orders/status", new OrderStatusRequest(key));
@@ -502,7 +704,7 @@ public sealed class CheckoutApiTests
         var replay = await replayResponse.Content.ReadFromJsonAsync<PlaceOrderResponse>(JsonOptions);
         await using (var scope = host.Services.CreateAsyncScope())
         {
-            var checkout = scope.ServiceProvider.GetRequiredService<CheckoutService>();
+            var checkout = scope.ServiceProvider.GetRequiredService<IPaymentReconciliationService>();
             await checkout.ReconcilePendingAsync(CancellationToken.None);
         }
 
@@ -733,12 +935,15 @@ internal sealed class CheckoutApiHost : IDisposable
         bool demoModeEnabled,
         string adminToken,
         string kioskId,
-        ILoggerProvider? loggerProvider = null)
+        ILoggerProvider? loggerProvider = null,
+        IReadOnlyDictionary<string, string?>? additionalEnvironment = null,
+        string environmentName = "Development",
+        TimeProvider? timeProvider = null)
     {
-        _factory = new CheckoutApiFactory(loggerProvider);
+        _factory = new CheckoutApiFactory(loggerProvider, environmentName, timeProvider);
         try
         {
-            using (new TemporaryEnvironmentVariables(new Dictionary<string, string?>
+            var environment = new Dictionary<string, string?>
             {
                 ["Checkout__DatabasePath"] = databasePath,
                 ["Checkout__MockPaymentsEnabled"] = "true",
@@ -748,7 +953,16 @@ internal sealed class CheckoutApiHost : IDisposable
                 ["Checkout__KioskId"] = kioskId,
                 ["DemoMode__Enabled"] = demoModeEnabled.ToString(),
                 ["DemoMode__AdminToken"] = adminToken
-            }))
+            };
+            if (additionalEnvironment is not null)
+            {
+                foreach (var (name, value) in additionalEnvironment)
+                {
+                    environment[name] = value;
+                }
+            }
+
+            using (new TemporaryEnvironmentVariables(environment))
             {
                 Client = _factory.CreateClient();
             }
@@ -774,14 +988,26 @@ internal sealed class CheckoutApiHost : IDisposable
     }
 }
 
-internal sealed class CheckoutApiFactory(ILoggerProvider? loggerProvider = null) : WebApplicationFactory<global::Program>
+internal sealed class CheckoutApiFactory(
+    ILoggerProvider? loggerProvider = null,
+    string environmentName = "Development",
+    TimeProvider? timeProvider = null) : WebApplicationFactory<global::Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
+        builder.UseEnvironment(environmentName);
         if (loggerProvider is not null)
         {
             builder.ConfigureLogging(logging => logging.AddProvider(loggerProvider));
+        }
+
+        if (timeProvider is not null)
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<TimeProvider>();
+                services.AddSingleton(timeProvider);
+            });
         }
     }
 }
@@ -819,8 +1045,11 @@ internal sealed class TemporaryCheckoutDatabase : IDisposable
         bool demoModeEnabled = false,
         string adminToken = "",
         string kioskId = "test-kiosk",
-        ILoggerProvider? loggerProvider = null) =>
-        new(DatabasePath, demoModeEnabled, adminToken, kioskId, loggerProvider);
+        ILoggerProvider? loggerProvider = null,
+        IReadOnlyDictionary<string, string?>? additionalEnvironment = null,
+        string environmentName = "Development",
+        TimeProvider? timeProvider = null) =>
+        new(DatabasePath, demoModeEnabled, adminToken, kioskId, loggerProvider, additionalEnvironment, environmentName, timeProvider);
 
     public void Dispose()
     {
@@ -862,4 +1091,9 @@ internal sealed class CapturingLoggerProvider : ILoggerProvider
             }
         }
     }
+}
+
+internal sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+{
+    public override DateTimeOffset GetUtcNow() => utcNow;
 }
