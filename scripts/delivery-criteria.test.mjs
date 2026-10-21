@@ -155,6 +155,8 @@ test('AC-D2 documented verification commands and CI cover backend, frontend, bro
   assert.match(workflow, /cache-dependency-path: frontend\/package-lock\.json/)
   assert.match(workflow, /dotnet build backend\/SelfServiceCheckout\.slnx --configuration Release/)
   assert.match(workflow, /dotnet test backend\/SelfServiceCheckout\.slnx --configuration Release/)
+  assert.match(workflow, /dotnet list backend\/SelfServiceCheckout\.slnx package --vulnerable --include-transitive/)
+  assert.match(workflow, /npm audit --prefix frontend --audit-level=low/)
   assert.match(workflow, /npm ci --prefix frontend/)
   assert.match(workflow, /npm test --prefix frontend/)
   assert.match(workflow, /npm run build --prefix frontend/)

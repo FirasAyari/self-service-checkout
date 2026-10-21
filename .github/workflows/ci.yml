@@ -36,6 +36,9 @@ jobs:
       - name: Restore backend solution
         run: dotnet restore backend/SelfServiceCheckout.slnx
 
+      - name: Audit NuGet packages
+        run: dotnet list backend/SelfServiceCheckout.slnx package --vulnerable --include-transitive
+
       - name: Build backend in Release
         run: dotnet build backend/SelfServiceCheckout.slnx --configuration Release --no-restore
 
@@ -58,6 +61,9 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci --prefix frontend
+
+      - name: Audit npm packages
+        run: npm audit --prefix frontend --audit-level=low
 
       - name: Check generated API types
         run: node scripts/generate-api-types.mjs --check

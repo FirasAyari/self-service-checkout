@@ -34,6 +34,13 @@ node scripts/dotnet.mjs run --project backend/src/SelfServiceCheckout/SelfServic
 
 ## Run tests and checks
 
+Audit the frontend and .NET dependencies for known vulnerabilities:
+
+```sh
+npm audit --prefix frontend --audit-level=low
+node scripts/dotnet.mjs list backend/SelfServiceCheckout.slnx package --vulnerable --include-transitive
+```
+
 Run the backend test projects, React unit tests, delivery checks, and architecture boundary checks:
 
 ```sh
