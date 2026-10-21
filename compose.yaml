@@ -1,0 +1,29 @@
+services:
+  checkout:
+    image: goodtable/self-service-checkout:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${CHECKOUT_PORT:-8080}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Checkout__DatabasePath: /var/lib/goodtable/checkout.db
+      Checkout__MockPaymentsEnabled: "true"
+      Checkout__KioskId: ${CHECKOUT_KIOSK_ID:-goodtable-demo}
+      Checkout__BusinessTimeZone: ${CHECKOUT_BUSINESS_TIME_ZONE:-UTC}
+      DemoMode__Enabled: "false"
+    volumes:
+      - checkout-data:/var/lib/goodtable
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  checkout-data:
