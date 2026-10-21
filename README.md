@@ -64,6 +64,17 @@ If you have GNU Make, `make setup` runs the same .NET tool restore, solution res
 
 On Unix with GNU Make, the short path after cloning is `make setup`, then `make dev`; open `http://127.0.0.1:5173`. Run `node scripts/dev-smoke.mjs` to verify that the Unix development entry point serves both the API and Vite client. Run `make check` for the build, tests, lint, architecture checks, and strict acceptance trace.
 
+The development smoke script uses Make. On Windows, start the combined development command above, leave it running, then open a second PowerShell terminal and check both endpoints directly:
+
+```powershell
+$api = Invoke-WebRequest -Uri 'http://localhost:5080/healthz' -UseBasicParsing
+$ui = Invoke-WebRequest -Uri 'http://127.0.0.1:5173/' -UseBasicParsing
+if ($api.StatusCode -ne 200 -or $ui.StatusCode -ne 200) { throw 'The API and UI must both return HTTP 200.' }
+"API: HTTP $($api.StatusCode); UI: HTTP $($ui.StatusCode)"
+```
+
+Both requests should return HTTP 200. Stop the combined development command with Ctrl+C.
+
 ## Run with Docker
 
 With Docker Compose installed, run:
@@ -82,7 +93,7 @@ To run the isolated container smoke check, which builds the image, checks the ov
 node scripts/docker-smoke.mjs
 ```
 
-The Docker build, readiness check, packaged assets, oversized-request rejection, simulated order, and restart persistence passed this smoke check on Windows using port 18081 on October 21, 2026.
+The Docker build, readiness check, packaged assets, oversized-request rejection, simulated order, and restart persistence passed this smoke check on Windows using port 18081 on October 21, 2026. That result is historical: Docker CLI is unavailable in the current verification environment, so I could not rerun the Docker path against the latest local commits.
 
 The Docker smoke uses port 18080 by default; if another service already uses it, set `CHECKOUT_SMOKE_PORT` to a free port. The CI workflow includes both the Unix development smoke and Docker smoke. The smoke checks require a working .NET/Node toolchain and Docker respectively.
 

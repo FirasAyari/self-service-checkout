@@ -36,6 +36,8 @@ test('AC-D1 setup and development entry points are wired to the API and frontend
   assert.match(workflow, /node scripts\/dev-smoke\.mjs/)
   assert.match(workflow, /Checkout__DatabasePath: \$\{\{ runner\.temp \}\}\/checkout-dev-smoke\.db/)
   assert.match(workflow, /uses: actions\/upload-artifact@v7/)
+  assert.match(readme, /Invoke-WebRequest -Uri 'http:\/\/localhost:5080\/healthz'/)
+  assert.match(readme, /Invoke-WebRequest -Uri 'http:\/\/127\.0\.0\.1:5173\/'/)
   assert.match(devSmoke, /\/healthz/)
   assert.match(devSmoke, /127\.0\.0\.1:5173/)
 })
@@ -91,6 +93,7 @@ test('AC-D1 the container smoke checks the current brand, completes an order, an
   assert.match(readme, /docker compose up --build/)
   assert.match(readme, /node scripts\/docker-smoke\.mjs/)
   assert.match(readme, /container smoke check[\s\S]*temporary container and volume/)
+  assert.match(readme, /Docker CLI is unavailable in the current verification environment/)
   assert.doesNotMatch(readme, /make docker-smoke/)
 })
 
