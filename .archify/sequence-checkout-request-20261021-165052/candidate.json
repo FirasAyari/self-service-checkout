@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Checkout Order Request: Browser to SQLite and Back",
+    "subtitle": "POST /api/orders · accepted quote through settlement and same-attempt recovery",
+    "output": ".archify/sequence-checkout-request-20261021-165052/checkout-request.html",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/FirasAyari/self-service-checkout.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "67ca18f447bfe14f36abeda743a38abd9e0fe1f2"
+    }
+  },
+  "participants": [
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "Browser",
+      "sublabel": "quote + saved attempt",
+      "sources": [
+        { "path": "frontend/src/checkout/usePaymentFlow.ts", "line": 49, "end_line": 67 },
+        { "path": "frontend/src/checkout/usePaymentFlow.ts", "line": 90, "end_line": 105 },
+        { "path": "frontend/src/api.ts", "line": 80, "end_line": 112 }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "ASP.NET Core API",
+      "sublabel": ".NET · JSON contract",
+      "sources": [
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout/Api/CheckoutEndpoints.cs", "line": 29, "end_line": 56 }
+      ]
+    },
+    {
+      "id": "application",
+      "type": "backend",
+      "label": "Checkout app",
+      "sublabel": "CheckoutService",
+      "sources": [
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Application/CheckoutService.cs", "line": 13, "end_line": 81 }
+      ]
+    },
+    {
+      "id": "reservation",
+      "type": "backend",
+      "label": "SQLite adapter",
+      "sublabel": "reserve + replay",
+      "sources": [
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/Services/SqliteOrderReservationStore.cs", "line": 19, "end_line": 37 },
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/Services/SqliteOrderReservationStore.cs", "line": 47, "end_line": 183 }
+      ]
+    },
+    {
+      "id": "database",
+      "type": "database",
+      "label": "SQLite DB",
+      "sublabel": "checkout.db",
+      "sources": [
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/Data/CheckoutDbContext.cs", "line": 7, "end_line": 14 },
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/Data/CheckoutDbContext.cs", "line": 42, "end_line": 68 },
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/Data/CheckoutDbContext.cs", "line": 78, "end_line": 90 }
+      ]
+    },
+    {
+      "id": "mockGateway",
+      "type": "backend",
+      "label": "Mock payment",
+      "sublabel": "simulated only",
+      "sources": [
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/Services/MockPaymentGateway.cs", "line": 7, "end_line": 60 }
+      ]
+    },
+    {
+      "id": "settlement",
+      "type": "backend",
+      "label": "Settlement",
+      "sublabel": "order status + recovery",
+      "sources": [
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/Services/PaymentSettlementService.cs", "line": 24, "end_line": 49 },
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/Services/PaymentSettlementService.cs", "line": 68, "end_line": 186 },
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/Services/PaymentSettlementService.cs", "line": 188, "end_line": 226 }
+      ]
+    }
+  ],
+  "segments": [
+    { "from": 150, "to": 465, "label": "1 · Replay existing attempt or reserve new order" },
+    { "from": 475, "to": 820, "label": "2 · Simulated outcome and settlement" },
+    { "from": 830, "to": 1005, "label": "3 · Read and return order status" },
+    { "from": 1020, "to": 1260, "label": "Recovery branch · only if the response is unknown" }
+  ],
+  "messages": [
+    {
+      "id": "submit-order",
+      "from": "browser",
+      "to": "api",
+      "y": 160,
+      "label": "POST /api/orders",
+      "variant": "emphasis"
+    },
+    { "id": "map-command", "from": "api", "to": "application", "y": 218, "label": "Map DTO · validate + hash request", "variant": "default" },
+    { "id": "reserve-call", "from": "application", "to": "reservation", "y": 258, "label": "ReserveAsync(key, quoteId, requestHash)", "variant": "emphasis" },
+    { "id": "idempotency-check", "from": "reservation", "to": "database", "y": 288, "label": "Serializable transaction · check idempotency key", "variant": "default" },
+    { "id": "existing-key", "from": "database", "to": "reservation", "y": 318, "label": "Replay: same key + hash returns existing attempt", "variant": "return" },
+    {
+      "id": "reserve-stock",
+      "from": "reservation",
+      "to": "database",
+      "y": 355,
+      "label": "New request only: validate quote · reserve stock · save order, attempt + lines · COMMIT",
+      "variant": "emphasis"
+    },
+    { "id": "reservation-committed", "from": "database", "to": "reservation", "y": 425, "label": "Reservation committed", "variant": "return" },
+    { "id": "reservation-return", "from": "reservation", "to": "application", "y": 455, "label": "Order + payment attempt IDs", "variant": "return" },
+    { "id": "record-mock-outcome", "from": "application", "to": "mockGateway", "y": 490, "label": "New request only: RecordScenarioAsync · mock", "variant": "default" },
+    {
+      "id": "write-ledger",
+      "from": "mockGateway",
+      "to": "database",
+      "y": 525,
+      "label": "Write Approved / Declined result to payment_ledger",
+      "variant": "default"
+    },
+    { "id": "ledger-committed", "from": "database", "to": "mockGateway", "y": 580, "label": "Outcome persisted", "variant": "return" },
+    { "id": "gateway-return", "from": "mockGateway", "to": "application", "y": 610, "label": "Scenario recorded", "variant": "return" },
+    { "id": "settle-call", "from": "application", "to": "settlement", "y": 645, "label": "Known result or replay: SettleAttemptAsync", "variant": "default" },
+    { "id": "read-outcome", "from": "settlement", "to": "database", "y": 675, "label": "Serializable read · pending attempt + ledger", "variant": "default" },
+    { "id": "ledger-outcome", "from": "database", "to": "settlement", "y": 705, "label": "Approved · Declined · or no result yet", "variant": "return" },
+    {
+      "id": "apply-settlement",
+      "from": "settlement",
+      "to": "database",
+      "y": 740,
+      "label": "Apply known result + commit",
+      "variant": "emphasis"
+    },
+    { "id": "settlement-return", "from": "settlement", "to": "application", "y": 810, "label": "Settled or still PENDING_PAYMENT", "variant": "return" },
+    { "id": "load-status", "from": "application", "to": "settlement", "y": 840, "label": "LoadOrderStatusAsync(key, orderId)", "variant": "default" },
+    { "id": "read-order", "from": "settlement", "to": "database", "y": 870, "label": "Read order + itemized lines", "variant": "default" },
+    { "id": "order-snapshot", "from": "database", "to": "settlement", "y": 900, "label": "OrderStatusSnapshot", "variant": "return" },
+    { "id": "status-return", "from": "settlement", "to": "application", "y": 930, "label": "Status + pickup number or pending message", "variant": "return" },
+    { "id": "result-to-api", "from": "application", "to": "api", "y": 960, "label": "PlaceOrderResult", "variant": "return" },
+    { "id": "order-response", "from": "api", "to": "browser", "y": 990, "label": "201 Created · 202 pending · 200 replay", "variant": "return" },
+    {
+      "id": "status-recovery",
+      "from": "browser",
+      "to": "api",
+      "y": 1045,
+      "label": "POST /api/orders/status · same key",
+      "variant": "dashed",
+      "note": "If the response is unknown, check this key; do not create a new attempt."
+    },
+    { "id": "status-lookup", "from": "api", "to": "settlement", "y": 1105, "label": "GetOrderStatusAsync(idempotencyKey)", "variant": "dashed" },
+    { "id": "find-attempt", "from": "settlement", "to": "database", "y": 1135, "label": "Find order + attempt · settle recorded result", "variant": "dashed" },
+    { "id": "current-state", "from": "database", "to": "settlement", "y": 1165, "label": "Current status or no order visible yet", "variant": "return" },
+    { "id": "status-back-to-api", "from": "settlement", "to": "api", "y": 1195, "label": "Order status, or 404 if not found", "variant": "return" },
+    { "id": "recovery-response", "from": "api", "to": "browser", "y": 1225, "label": "200 status / 404 still means unknown", "variant": "return" }
+  ],
+  "cards": [
+    {
+      "dot": "slate",
+      "title": "Where this trace starts",
+      "items": [
+        "The browser already has a server-priced quote from POST /api/quotes and the customer has accepted it.",
+        "This sequence starts when React submits that quote to POST /api/orders."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Why retries are safe",
+      "items": [
+        "Before POST /api/orders, React saves the same idempotency key in sessionStorage.",
+        "The order key and request hash make a repeated request resolve to its existing order and attempt.",
+        "A missing status result is not treated as a decline; the client keeps checking the same key."
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "Demo payment boundary",
+      "items": [
+        "Outcomes are simulated and persisted locally. The project does not collect card data or call a payment provider.",
+        "Approval assigns a pickup number; decline releases stock. StillUnknown writes no ledger row and stays pending."
+      ]
+    }
+  ]
+}

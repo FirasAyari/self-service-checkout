@@ -139,6 +139,14 @@ flowchart LR
   Kiosk -->|JSON API| Host
 ```
 
+### Checkout order request
+
+This Archify sequence follows `POST /api/orders` from the React browser through the .NET endpoint, application service, atomic SQLite reservation, simulated outcome, settlement, and response. It starts after a server-priced quote is accepted; the final lane shows recovery with the same idempotency key when the original response is unknown.
+
+[![Checkout order request sequence](.archify/sequence-checkout-request-20261021-165052/checkout-request-preview.png)](.archify/sequence-checkout-request-20261021-165052/checkout-request.html)
+
+[Open the interactive Archify diagram](.archify/sequence-checkout-request-20261021-165052/checkout-request.html) · [Watch the six-second trace](.archify/sequence-checkout-request-20261021-165052/checkout-request.webm) · [View its editable JSON source](.archify/sequence-checkout-request-20261021-165052/candidate.json)
+
 - `data/checkout.db` is local runtime data and is ignored by Git. SQLite is configured for the single-location demo, not multi-instance production traffic.
 
 Development enables mock outcomes for local demonstrations. In Production, set `Checkout:MockPaymentsEnabled=true` only for a visibly labeled demo kiosk; the customer cannot choose an outcome and the server always returns the standard simulated approval. Neither mode contacts a provider or takes money. Development-only admin/demo controls are disabled by default and require explicit configuration; they are not a production management workflow. No real payment gateway, production admin UI, cashier workflow, customer accounts, order fulfillment screen, refunds, or multi-location support is included. The configured business time zone defaults to UTC and must be set for the operating location before a kiosk trial.
