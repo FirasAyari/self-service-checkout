@@ -25,7 +25,7 @@ namespace SelfServiceCheckout.Api.Tests;
 
 public sealed class CheckoutApiTests
 {
-    [Fact]
+    [Fact(DisplayName = "AC-M1 BR-M1: menu has three categories, twelve positive-priced items, and sold-out availability")]
     public async Task GetMenu_ReturnsSeededItemsAndSoldOutAvailability()
     {
         using var database = new TemporaryCheckoutDatabase();
@@ -35,8 +35,10 @@ public sealed class CheckoutApiTests
 
         Assert.NotNull(menu);
         Assert.False(string.IsNullOrWhiteSpace(menu.Version));
+        Assert.True(menu.Categories.Count >= 3);
         var items = menu.Categories.SelectMany(category => category.Items).ToDictionary(item => item.Id);
         Assert.Equal(12, items.Count);
+        Assert.All(items.Values, item => Assert.True(item.PriceCents > 0));
         Assert.False(items["tomato-panini"].IsAvailable);
         Assert.Equal(0, items["tomato-panini"].Stock);
         Assert.True(items["turkey-melt"].IsAvailable);
