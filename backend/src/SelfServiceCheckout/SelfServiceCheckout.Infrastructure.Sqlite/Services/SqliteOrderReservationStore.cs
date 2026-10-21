@@ -5,7 +5,6 @@ using Checkout.Domain;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using SelfServiceCheckout.Application;
-using SelfServiceCheckout.Contracts;
 using SelfServiceCheckout.Data;
 
 namespace SelfServiceCheckout.Infrastructure.Sqlite.Services;

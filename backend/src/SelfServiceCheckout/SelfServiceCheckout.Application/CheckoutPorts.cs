@@ -1,15 +1,15 @@
-using SelfServiceCheckout.Contracts;
+using Checkout.Domain;
 
 namespace SelfServiceCheckout.Application;
 
 public interface IMenuQueryService
 {
-    Task<MenuResponse> GetMenuAsync(CancellationToken cancellationToken);
+    Task<MenuSnapshot> GetMenuAsync(CancellationToken cancellationToken);
 }
 
 public interface IQuoteService
 {
-    Task<QuoteResponse> CreateQuoteAsync(QuoteRequest request, CancellationToken cancellationToken);
+    Task<QuoteSnapshot> CreateQuoteAsync(IReadOnlyCollection<CartLine?>? lines, CancellationToken cancellationToken);
 }
 
 public interface IQuoteMaintenanceService
@@ -56,7 +56,7 @@ public sealed record QuoteLineSnapshot(
 
 public interface IOrderPlacementService
 {
-    Task<PlaceOrderResult> PlaceOrderAsync(PlaceOrderRequest request, CancellationToken cancellationToken);
+    Task<PlaceOrderResult> PlaceOrderAsync(PlaceOrderCommand command, CancellationToken cancellationToken);
 }
 
 public interface IOrderReservationStore
@@ -74,7 +74,7 @@ public sealed record OrderReservation(string OrderId, string AttemptId, bool IsR
 
 public interface IOrderStatusService
 {
-    Task<OrderStatusResponse> GetOrderStatusAsync(OrderStatusRequest request, CancellationToken cancellationToken);
+    Task<OrderStatusSnapshot> GetOrderStatusAsync(string idempotencyKey, CancellationToken cancellationToken);
 }
 
 public interface IPaymentReconciliationService
@@ -85,7 +85,7 @@ public interface IPaymentReconciliationService
 public interface IPaymentOutcomeSettlement
 {
     Task SettleAttemptAsync(string attemptId, CancellationToken cancellationToken);
-    Task<OrderStatusResponse> LoadOrderStatusAsync(
+    Task<OrderStatusSnapshot> LoadOrderStatusAsync(
         string idempotencyKey,
         string orderId,
         CancellationToken cancellationToken);
@@ -96,7 +96,7 @@ public interface IMockPaymentGateway
     DemoChaosConfiguration Configuration { get; }
     Task RecordScenarioAsync(
         string attemptId,
-        MockPaymentScenario scenario,
+        PaymentScenario scenario,
         DemoChaosConfiguration configuration,
         CancellationToken cancellationToken);
 }
@@ -114,7 +114,9 @@ public interface IDemoAdministrationService
     Task ResetAsync(CancellationToken cancellationToken);
 }
 
-public sealed record PlaceOrderResult(OrderStatusResponse Order, bool IsReplay);
+public sealed record PlaceOrderResult(OrderStatusSnapshot Order, bool IsReplay);
+
+public sealed record PlaceOrderCommand(string QuoteId, string IdempotencyKey, PaymentScenario Scenario);
 
 public sealed record SimulatedPaymentPolicy(bool IsDevelopment);
 

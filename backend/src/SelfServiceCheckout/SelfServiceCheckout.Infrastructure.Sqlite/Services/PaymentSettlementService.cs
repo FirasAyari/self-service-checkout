@@ -3,7 +3,6 @@ using Checkout.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using SelfServiceCheckout.Application;
-using SelfServiceCheckout.Contracts;
 using SelfServiceCheckout.Data;
 
 namespace SelfServiceCheckout.Infrastructure.Sqlite.Services;
@@ -22,18 +21,18 @@ public sealed class PaymentSettlementService(
     private readonly CheckoutOptions _options = options.Value;
     private readonly TimeZoneInfo _businessTimeZone = TimeZoneInfo.FindSystemTimeZoneById(options.Value.BusinessTimeZone);
 
-    public async Task<OrderStatusResponse> GetOrderStatusAsync(
-        OrderStatusRequest request,
+    public async Task<OrderStatusSnapshot> GetOrderStatusAsync(
+        string idempotencyKey,
         CancellationToken cancellationToken)
     {
-        ValidateIdempotencyKey(request.IdempotencyKey);
+        ValidateIdempotencyKey(idempotencyKey);
         string? attemptId;
         string? orderId;
         await using (var database = await databaseFactory.CreateDbContextAsync(cancellationToken))
         {
             var order = await database.Orders
                 .AsNoTracking()
-                .Where(item => item.IdempotencyKey == request.IdempotencyKey)
+                .Where(item => item.IdempotencyKey == idempotencyKey)
                 .Select(item => new { item.Id, AttemptId = item.PaymentAttempt!.Id })
                 .SingleOrDefaultAsync(cancellationToken);
             attemptId = order?.AttemptId;
@@ -46,7 +45,7 @@ public sealed class PaymentSettlementService(
         }
 
         await SettleAttemptAsync(attemptId, CancellationToken.None);
-        return await LoadOrderStatusAsync(request.IdempotencyKey, orderId, cancellationToken);
+        return await LoadOrderStatusAsync(idempotencyKey, orderId, cancellationToken);
     }
 
     public async Task ReconcilePendingAsync(CancellationToken cancellationToken)
@@ -186,7 +185,7 @@ public sealed class PaymentSettlementService(
         await transaction.CommitAsync(cancellationToken);
     }
 
-    public async Task<OrderStatusResponse> LoadOrderStatusAsync(
+    public async Task<OrderStatusSnapshot> LoadOrderStatusAsync(
         string idempotencyKey,
         string orderId,
         CancellationToken cancellationToken)
@@ -208,14 +207,14 @@ public sealed class PaymentSettlementService(
             _ => "Payment is still being confirmed. Do not pay again. Keep this page open and check again."
         };
 
-        return new OrderStatusResponse(
+        return new OrderStatusSnapshot(
             order.PublicReference,
             order.Status,
             order.PickupNumber,
             DateTimeOffset.FromUnixTimeMilliseconds(order.UpdatedAtUnixMs),
             message,
             order.Lines.OrderBy(line => line.ItemName, StringComparer.Ordinal)
-                .Select(line => new OrderLineStatusDto(
+                .Select(line => new OrderLineSnapshot(
                     line.ItemId,
                     line.ItemName,
                     line.Quantity,

@@ -2,7 +2,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Checkout.Domain;
-using SelfServiceCheckout.Contracts;
 
 namespace SelfServiceCheckout.Application;
 
@@ -14,7 +13,7 @@ public sealed class CatalogService(
     private const int QuoteCleanupBatchSize = 500;
     private static readonly TimeSpan QuoteRetentionAfterExpiry = TimeSpan.FromDays(1);
 
-    public async Task<MenuResponse> GetMenuAsync(CancellationToken cancellationToken)
+    public async Task<MenuSnapshot> GetMenuAsync(CancellationToken cancellationToken)
     {
         var items = await catalogStore.GetActiveItemsAsync(null, cancellationToken);
         var versionSource = string.Join('\n', items.Select(item =>
@@ -22,7 +21,7 @@ public sealed class CatalogService(
         var version = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(versionSource)))[..16];
         var categories = items
             .GroupBy(item => item.Category)
-            .Select(group => new MenuCategoryDto(group.Key, group.Select(item => new MenuItemDto(
+            .Select(group => new MenuCategorySnapshot(group.Key, group.Select(item => new MenuItemSnapshot(
                 item.Id,
                 item.Category,
                 item.Name,
@@ -33,13 +32,12 @@ public sealed class CatalogService(
                 MenuOptionCatalog.GetGroups(item.Id))).ToArray()))
             .ToArray();
 
-        return new MenuResponse(version, categories);
+        return new MenuSnapshot(version, categories);
     }
 
-    public async Task<QuoteResponse> CreateQuoteAsync(QuoteRequest request, CancellationToken cancellationToken)
+    public async Task<QuoteSnapshot> CreateQuoteAsync(IReadOnlyCollection<CartLine?>? lines, CancellationToken cancellationToken)
     {
-        var cart = CartRules.Normalize(request.Items?.Select(line =>
-            line is null ? null : new CartLine(line.ItemId, line.Quantity, line.OptionIds)).ToArray());
+        var cart = CartRules.Normalize(lines);
         if (!cart.IsValid)
         {
             throw new CheckoutException(cart.ErrorCode!, cart.Message!, CheckoutFailureKind.InvalidRequest);
@@ -112,15 +110,15 @@ public sealed class CatalogService(
         return catalogStore.DeleteExpiredQuotesAsync(cutoffUnixMs, QuoteCleanupBatchSize, cancellationToken);
     }
 
-    private static QuoteResponse ToQuoteResponse(
+    private static QuoteSnapshot ToQuoteResponse(
         string quoteId,
         DateTimeOffset expiresAt,
         IReadOnlyList<QuoteLineSnapshot> lines,
         long totalCents,
-        long taxCents) => new(
+        long taxCents) => new QuoteSnapshot(
             quoteId,
             expiresAt,
-            lines.Select(line => new QuoteLineDto(
+            lines.Select(line => new QuotedLineSnapshot(
                 line.ItemId,
                 line.Name,
                 line.Quantity,

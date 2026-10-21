@@ -18,6 +18,5 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Checkout.Domain\Checkout.Domain.csproj" />
     <ProjectReference Include="..\SelfServiceCheckout.Application\SelfServiceCheckout.Application.csproj" />
-    <ProjectReference Include="..\SelfServiceCheckout.Contracts\SelfServiceCheckout.Contracts.csproj" />
   </ItemGroup>
 </Project>

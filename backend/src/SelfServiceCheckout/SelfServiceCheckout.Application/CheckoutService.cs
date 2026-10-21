@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using SelfServiceCheckout.Contracts;
 
 namespace SelfServiceCheckout.Application;
 
@@ -12,7 +11,7 @@ public sealed class CheckoutService(
     SimulatedPaymentPolicy paymentPolicy) : IOrderPlacementService
 {
     public async Task<PlaceOrderResult> PlaceOrderAsync(
-        PlaceOrderRequest request,
+        PlaceOrderCommand command,
         CancellationToken cancellationToken)
     {
         if (!options.MockPaymentsEnabled)
@@ -20,23 +19,23 @@ public sealed class CheckoutService(
             throw new CheckoutException("MOCK_PAYMENT_DISABLED", "Simulated payment is disabled in this environment.", CheckoutFailureKind.Unavailable);
         }
 
-        ValidateIdempotencyKey(request.IdempotencyKey);
-        ValidateQuoteId(request.QuoteId);
-        if (!Enum.IsDefined(request.Scenario))
+        ValidateIdempotencyKey(command.IdempotencyKey);
+        ValidateQuoteId(command.QuoteId);
+        if (!Enum.IsDefined(command.Scenario))
         {
             throw new CheckoutException("PAYMENT_SCENARIO", "Choose one of the listed simulated payment outcomes.", CheckoutFailureKind.InvalidRequest);
         }
 
-        var quoteId = request.QuoteId.ToLowerInvariant();
-        var requestHash = ComputeRequestHash(quoteId, request.Scenario);
+        var quoteId = command.QuoteId.ToLowerInvariant();
+        var requestHash = ComputeRequestHash(quoteId, command.Scenario);
         var chaosConfiguration = paymentPolicy.IsDevelopment
             ? paymentGateway.Configuration
             : new DemoChaosConfiguration(null, null, 0);
         var effectiveScenario = paymentPolicy.IsDevelopment
-            ? chaosConfiguration.ScenarioOverride ?? request.Scenario
-            : MockPaymentScenario.Approve;
+            ? chaosConfiguration.ScenarioOverride ?? command.Scenario
+            : PaymentScenario.Approve;
         var reservation = await reservationStore.ReserveAsync(new OrderReservationCommand(
-            request.IdempotencyKey,
+            command.IdempotencyKey,
             quoteId,
             requestHash,
             options.KioskId), cancellationToken);
@@ -61,7 +60,7 @@ public sealed class CheckoutService(
                 effectiveScenario,
                 chaosConfiguration,
                 timeout.Token);
-            if (effectiveScenario is MockPaymentScenario.Approve or MockPaymentScenario.Decline)
+            if (effectiveScenario is PaymentScenario.Approve or PaymentScenario.Decline)
             {
                 await paymentSettlement.SettleAttemptAsync(reservation.AttemptId, CancellationToken.None);
             }
@@ -76,13 +75,13 @@ public sealed class CheckoutService(
         }
 
         var order = await paymentSettlement.LoadOrderStatusAsync(
-            request.IdempotencyKey,
+            command.IdempotencyKey,
             reservation.OrderId,
             cancellationToken);
         return new PlaceOrderResult(order, reservation.IsReplay);
     }
 
-    private static string ComputeRequestHash(string quoteId, MockPaymentScenario scenario)
+    private static string ComputeRequestHash(string quoteId, PaymentScenario scenario)
     {
         var canonical = $"{quoteId.ToLowerInvariant()}\n{scenario}";
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));

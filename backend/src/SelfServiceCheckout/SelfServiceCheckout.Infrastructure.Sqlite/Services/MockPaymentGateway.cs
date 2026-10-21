@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SelfServiceCheckout.Application;
-using SelfServiceCheckout.Contracts;
 using SelfServiceCheckout.Data;
 
 namespace SelfServiceCheckout.Infrastructure.Sqlite.Services;
@@ -18,7 +17,7 @@ public sealed class MockPaymentGateway(
 
     public async Task RecordScenarioAsync(
         string attemptId,
-        MockPaymentScenario scenario,
+        PaymentScenario scenario,
         DemoChaosConfiguration configuration,
         CancellationToken cancellationToken)
     {
@@ -27,12 +26,12 @@ public sealed class MockPaymentGateway(
             await Task.Delay(configuration.LatencyMilliseconds, cancellationToken);
         }
 
-        if (scenario == MockPaymentScenario.StillUnknown)
+        if (scenario == PaymentScenario.StillUnknown)
         {
             return;
         }
 
-        var outcome = scenario == MockPaymentScenario.Decline ? "Declined" : "Approved";
+        var outcome = scenario == PaymentScenario.Decline ? "Declined" : "Approved";
         await using var database = await databaseFactory.CreateDbContextAsync(cancellationToken);
         if (await database.PaymentLedger.AnyAsync(item => item.AttemptId == attemptId, cancellationToken))
         {

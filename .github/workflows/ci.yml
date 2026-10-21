@@ -10,7 +10,7 @@ permissions:
 jobs:
   backend:
     name: Backend build and tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -31,7 +31,7 @@ jobs:
 
   frontend:
     name: Frontend checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -68,7 +68,7 @@ jobs:
 
   browser:
     name: Browser checkout journeys
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out source
         uses: actions/checkout@v4

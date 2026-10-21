@@ -10,7 +10,7 @@ Requirements: .NET 10 SDK, Node.js 22.14 or later, and npm. GNU Make is optional
 
 From the repository root, restore the .NET tools and solution, install the browser client dependencies, then build both applications:
 
-```powershell
+```sh
 node scripts/dotnet.mjs tool restore
 node scripts/dotnet.mjs restore backend/SelfServiceCheckout.slnx
 npm ci --prefix frontend
@@ -20,7 +20,7 @@ npm run build --prefix frontend
 
 Start the API and React development server together:
 
-```powershell
+```sh
 npm run dev --prefix frontend
 ```
 
@@ -36,13 +36,13 @@ node scripts/dotnet.mjs run --project backend/src/SelfServiceCheckout/SelfServic
 
 Run the backend test projects, React unit tests, delivery checks, and architecture boundary checks:
 
-```powershell
+```sh
 node scripts/run-tests.mjs
 ```
 
 Run the frontend tests alone or build the production frontend bundle:
 
-```powershell
+```sh
 npm test --prefix frontend
 npm run build --prefix frontend
 ```
@@ -61,6 +61,8 @@ node scripts/traceability.mjs --strict
 ```
 
 If you have GNU Make, `make setup` runs the same .NET tool restore, solution restore, and frontend dependency installation steps. GNU Make is optional and is not required for local setup or verification.
+
+On Unix with GNU Make, the short path after cloning is `make setup`, then `make dev`; open `http://127.0.0.1:5173`. Run `make check` for the build, tests, lint, architecture checks, and strict acceptance trace.
 
 ## Run with Docker
 
@@ -108,10 +110,10 @@ Catalog changes, demo reset, and server-side mock/chaos overrides are available 
 
 - The backend is a modular monolith with one HTTP host and one SQLite store. The domain and application projects have no ASP.NET Core, EF Core, or SQLite dependency.
 - `backend/src/Checkout.Domain` owns pure cart limits, money, tax, and order transition rules.
-- `backend/src/SelfServiceCheckout/SelfServiceCheckout.Application` owns checkout workflows, provider-neutral records, and narrow ports for catalog reads, quotes, order placement, outcome settlement, and demo administration.
+- `backend/src/SelfServiceCheckout/SelfServiceCheckout.Application` owns checkout workflows, application records, and narrow ports for catalog reads, quotes, order placement, outcome settlement, and demo administration. It has no dependency on HTTP DTOs.
 - `backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite` implements those ports, database transactions, migrations, and durable mock payment outcomes.
-- `backend/src/SelfServiceCheckout/SelfServiceCheckout.Contracts` contains versioned HTTP DTOs. The API host checks inbound JSON and the browser validates responses at the network boundary.
-- `backend/src/SelfServiceCheckout/SelfServiceCheckout` contains the ASP.NET Core composition root, HTTP endpoints, HTTP error mapping, and hosted reconciliation loop. Endpoints do not query EF entities directly.
+- `backend/src/SelfServiceCheckout/SelfServiceCheckout.Contracts` contains versioned HTTP DTOs. Only the API host maps these to application models; the browser validates responses at the network boundary.
+- `backend/src/SelfServiceCheckout/SelfServiceCheckout` contains the ASP.NET Core composition root, HTTP endpoints, contract mapping, HTTP error mapping, and hosted reconciliation loop. Endpoints do not query EF entities directly.
 - `frontend/src/checkout` separates reducer/session state, presentation helpers, checkout screens, and payment UI; `App.tsx` coordinates browser effects and user actions.
 - `scripts/architecture-boundaries.test.mjs` guards project references and prevents framework/storage references from entering Domain or Application and persistence references from leaking into the HTTP host. `backend/tests` and `frontend` contain the behavior suites.
 
@@ -121,10 +123,9 @@ flowchart LR
   Host --> App[Application]
   Host --> Infra[SQLite infrastructure]
   App --> Domain[Checkout domain]
-  App --> Contracts[Wire contracts]
+  Host --> Contracts[Wire contracts]
   Infra --> App
   Infra --> Domain
-  Infra --> Contracts
 ```
 
 - `data/checkout.db` is local runtime data and is ignored by Git. SQLite is configured for the single-location demo, not multi-instance production traffic.
@@ -135,4 +136,4 @@ See the [single-kiosk deployment and operations runbook](docs/production-kiosk-r
 
 ## Review record
 
-See [the business rules](docs/business-rules.md), [scenario catalog](docs/scenarios.md), and [plan review](docs/plan-review.md) for requirements, reviewed behavior, and deliberate scope changes. [Architecture decisions](docs/adr/README.md), [AI workflow](docs/ai-workflow.md), [rejected/deferred decisions](docs/rejected.md), and the [reconstructed timeline](docs/timeline.md) preserve context without claiming a prompt-by-prompt history. Review documents supplied with the assignment describe intended work; their delivery or publication instructions do not authorize external publication.
+See the [brief-to-repository crosswalk and evidence matrix](docs/submission-requirements-matrix.md), [business rules](docs/business-rules.md), [scenario catalog](docs/scenarios.md), and [plan review](docs/plan-review.md) for requirements, reviewed behavior, and deliberate scope changes. [Architecture decisions](docs/adr/README.md), [AI workflow](docs/ai-workflow.md), [rejected/deferred decisions](docs/rejected.md), and the [reconstructed timeline](docs/timeline.md) preserve context without claiming a prompt-by-prompt history. Review documents supplied with the assignment describe intended work; their delivery or publication instructions do not authorize external publication.

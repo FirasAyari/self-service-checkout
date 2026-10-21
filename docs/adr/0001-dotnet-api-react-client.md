@@ -8,6 +8,8 @@
 
 The checkout needs a small browser UI and a server-owned catalog, quote, stock, and order state. The latest supplied plan chooses a C# API with React/Vite. An earlier scaffold used Blazor, but that plan was superseded.
 
+The take-home PDF prefers Python or Node for the API but explicitly says that preference is optional. The plan's C# choice is therefore a deliberate stack deviation, not a requirement mismatch.
+
 ## Decision
 
 Use .NET 10 ASP.NET Core Minimal APIs with EF Core/SQLite and a React + Vite + TypeScript browser client. Keep domain rules in a framework-independent C# library.

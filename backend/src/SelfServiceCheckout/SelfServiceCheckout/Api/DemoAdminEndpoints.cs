@@ -86,7 +86,9 @@ public static class DemoAdminEndpoints
                 }
 
                 chaosState.SetConfiguration(new DemoChaosConfiguration(
-                    request.ScenarioOverride,
+                    request.ScenarioOverride is { } selectedScenario
+                        ? ApiContractMappings.ToApplicationScenario(selectedScenario)
+                        : null,
                     request.Mode,
                     request.LatencyMilliseconds));
                 return Results.Ok(new

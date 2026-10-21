@@ -38,13 +38,13 @@ const projectPaths = Object.fromEntries(await Promise.all(Object.entries(project
 assert.deepEqual(await projectReferences(projects.domain), [], 'Domain must have no project dependencies.')
 assert.deepEqual(
   await projectReferences(projects.application),
-  [projectPaths.contracts, projectPaths.domain].sort(),
-  'Application may depend only on Domain and wire contracts.',
+  [projectPaths.domain],
+  'Application may depend only on Domain; HTTP contracts belong in the host.',
 )
 assert.deepEqual(
   await projectReferences(projects.infrastructure),
-  [projectPaths.application, projectPaths.contracts, projectPaths.domain].sort(),
-  'Infrastructure may implement application ports and use domain/contracts.',
+  [projectPaths.application, projectPaths.domain].sort(),
+  'Infrastructure may implement application ports and use Domain, not HTTP contracts.',
 )
 assert.deepEqual(
   await projectReferences(projects.host),
@@ -54,6 +54,13 @@ assert.deepEqual(
 
 for (const layer of ['domain', 'application']) {
   assert.doesNotMatch(await projectXml(projects[layer]), /<PackageReference\b|<FrameworkReference\b/i, `${layer} must not declare framework or provider packages.`)
+}
+for (const layer of ['application', 'infrastructure']) {
+  const files = await sourceFiles(dirname(projectPaths[layer]))
+  for (const file of files) {
+    const source = await readFile(file, 'utf8')
+    assert.doesNotMatch(source, /SelfServiceCheckout\.Contracts/, `${file} must not depend on HTTP contracts.`)
+  }
 }
 assert.match(await projectXml(projects.infrastructure), /Microsoft\.EntityFrameworkCore\.Sqlite/i, 'SQLite provider belongs to infrastructure.')
 assert.doesNotMatch(await projectXml(projects.host), /Microsoft\.EntityFrameworkCore|Microsoft\.Data\.Sqlite/i, 'The HTTP host must not own persistence packages.')
@@ -72,4 +79,4 @@ for (const file of hostFiles) {
   assert.doesNotMatch(source, /Microsoft\.EntityFrameworkCore|Microsoft\.Data\.Sqlite|SelfServiceCheckout\.Data|IDbContextFactory|CheckoutDbContext|CatalogItemEntity/, `${file} must use application ports instead of persistence details.`)
 }
 
-console.log('Architecture boundaries passed: Domain, Application, Infrastructure, and HTTP host dependencies are directed correctly.')
+console.log('Architecture boundaries passed: HTTP contracts stay in the host; application and infrastructure use inward-facing models.')

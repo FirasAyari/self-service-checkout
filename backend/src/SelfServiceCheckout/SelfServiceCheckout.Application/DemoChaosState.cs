@@ -19,6 +19,6 @@ public enum DemoChaosMode
 }
 
 public sealed record DemoChaosConfiguration(
-    SelfServiceCheckout.Contracts.MockPaymentScenario? ScenarioOverride,
+    PaymentScenario? ScenarioOverride,
     DemoChaosMode? Mode,
     int LatencyMilliseconds);

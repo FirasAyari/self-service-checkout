@@ -9,4 +9,5 @@
 | [0005](0005-atomic-stock-reservation.md) | Atomic stock reservation | accepted | 2026-10-20 |
 | [0006](0006-kiosk-session-privacy.md) | Kiosk session privacy and reset | accepted | 2026-10-20 |
 | [0007](0007-demo-scope-cut.md) | Keep the take-home scope focused | accepted | 2026-10-20 |
-| [0008](0008-layered-modular-monolith.md) | Layered modular monolith boundaries | accepted | 2026-10-21 |
+| [0008](0008-layered-modular-monolith.md) | Layered modular monolith boundaries | superseded in part by ADR-0009 | 2026-10-21 |
+| [0009](0009-http-contract-boundary.md) | Keep HTTP contracts at the host boundary | accepted | 2026-10-21 |
