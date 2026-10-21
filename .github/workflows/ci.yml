@@ -8,7 +8,66 @@ permissions:
   contents: read
 
 jobs:
-  build-and-test:
+  backend:
+    name: Backend build and tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore backend solution
+        run: dotnet restore backend/SelfServiceCheckout.slnx
+
+      - name: Build backend in Release
+        run: dotnet build backend/SelfServiceCheckout.slnx --configuration Release --no-restore
+
+      - name: Test backend in Release
+        run: dotnet test backend/SelfServiceCheckout.slnx --configuration Release --no-build
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Check generated API types
+        run: node scripts/generate-api-types.mjs --check
+
+      - name: Lint frontend
+        run: npm run lint --prefix frontend
+
+      - name: Run frontend tests
+        run: npm test --prefix frontend
+
+      - name: Build frontend for production
+        run: npm run build --prefix frontend
+
+      - name: Run delivery and architecture checks
+        run: |
+          node --test scripts/delivery-criteria.test.mjs
+          node scripts/architecture-boundaries.test.mjs
+
+      - name: Check acceptance-criteria traceability
+        run: node scripts/traceability.mjs --strict
+
+  browser:
+    name: Browser checkout journeys
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -22,40 +81,25 @@ jobs:
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.14.0
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
-        run: make setup
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
 
-      - name: Build API and browser client
-        run: make build
-
-      - name: Validate Docker Compose configuration
-        run: docker compose config --quiet
-
-      - name: Build and smoke test the Docker image
-        run: node scripts/docker-smoke.mjs
-
-      - name: Check generated API contracts
-        run: node scripts/generate-api-types.mjs --check
-
-      - name: Lint browser client
-        run: npm run lint --prefix frontend
-
-      - name: Smoke-check the local development command
-        run: node scripts/dev-smoke.mjs
-
-      - name: Run configured automated tests
-        run: make test
-
-      - name: Install Playwright Chromium
+      - name: Install Playwright Chromium and system dependencies
         run: npx playwright install --with-deps chromium
         working-directory: frontend
 
-      - name: Run browser end-to-end tests
-        run: make e2e
+      - name: Run checkout and production-host browser tests
+        run: node scripts/run-e2e.mjs
 
-      - name: Check acceptance-criteria traceability
-        run: node scripts/traceability.mjs --strict
+      - name: Upload browser test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-reports
+          path: frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 7

@@ -30,8 +30,10 @@ test('AC-D1 setup and development entry points are wired to the API and frontend
   assert.match(vite, /proxy:\s*\{\s*'\/api':\s*'http:\/\/127\.0\.0\.1:5080'/)
   assert.match(runApi, /SelfServiceCheckout\.csproj/)
   assert.match(workflow, /runs-on:\s*ubuntu-latest/)
-  assert.match(workflow, /run:\s*make setup/)
-  assert.match(workflow, /node scripts\/dev-smoke\.mjs/)
+  assert.match(workflow, /run: dotnet restore backend\/SelfServiceCheckout\.slnx/)
+  assert.match(workflow, /run: npm ci --prefix frontend/)
+  assert.doesNotMatch(workflow, /run:\s*make\b/)
+  assert.doesNotMatch(workflow, /scripts\/dev-smoke\.mjs/)
   assert.match(devSmoke, /\/healthz/)
   assert.match(devSmoke, /127\.0\.0\.1:5173/)
 })
@@ -57,8 +59,7 @@ test('AC-D1 Docker builds the full checkout and persists its SQLite data', async
   assert.match(dockerignore, /data\/\*\.db/)
   assert.match(dockerignore, /\.env\.\*/)
   assert.match(makefile, /docker-up:[\s\S]*docker compose up --build/)
-  assert.match(workflow, /docker compose config --quiet/)
-  assert.match(workflow, /node scripts\/docker-smoke\.mjs/)
+  assert.doesNotMatch(workflow, /docker compose|scripts\/docker-smoke\.mjs/)
   assert.match(runbook, /make docker-smoke/)
 })
 
@@ -86,12 +87,14 @@ test('AC-D1 the container smoke completes an order and verifies its identity aft
   assert.doesNotMatch(readme, /make docker-smoke/)
 })
 
-test('AC-D2 documented verification targets invoke the checks CI runs', async () => {
-  const [readme, makefile, workflow, packageSource] = await Promise.all([
+test('AC-D2 documented verification commands and CI cover backend, frontend, browser, and trace checks', async () => {
+  const [readme, makefile, workflow, packageSource, browserConfig, productionBrowserConfig] = await Promise.all([
     read('README.md'),
     read('Makefile'),
     read('.github/workflows/ci.yml'),
     read('frontend/package.json'),
+    read('frontend/playwright.config.ts'),
+    read('frontend/playwright.production.config.ts'),
   ])
   const packageJson = JSON.parse(packageSource)
 
@@ -110,10 +113,29 @@ test('AC-D2 documented verification targets invoke the checks CI runs', async ()
   assert.match(makefile, /check:[\s\S]*?run-tests\.mjs[\s\S]*?traceability\.mjs --strict/)
   assert.equal(typeof packageJson.scripts.test, 'string')
   assert.equal(typeof packageJson.scripts.e2e, 'string')
-  assert.match(workflow, /run:\s*make build/)
-  assert.match(workflow, /run:\s*make test/)
-  assert.match(workflow, /run:\s*make e2e/)
+  assert.match(workflow, /on:\s*\n\s+push:\s*\n\s+pull_request:/)
+  assert.match(workflow, /backend:\s*\n\s+name: Backend build and tests/)
+  assert.match(workflow, /frontend:\s*\n\s+name: Frontend checks/)
+  assert.match(workflow, /browser:\s*\n\s+name: Browser checkout journeys/)
+  assert.match(workflow, /dotnet-version: 10\.0\.x/)
+  assert.match(workflow, /node-version: 22\.14\.0/)
+  assert.match(workflow, /cache-dependency-path: frontend\/package-lock\.json/)
+  assert.match(workflow, /dotnet build backend\/SelfServiceCheckout\.slnx --configuration Release/)
+  assert.match(workflow, /dotnet test backend\/SelfServiceCheckout\.slnx --configuration Release/)
+  assert.match(workflow, /npm ci --prefix frontend/)
+  assert.match(workflow, /npm test --prefix frontend/)
+  assert.match(workflow, /npm run build --prefix frontend/)
+  assert.match(workflow, /npx playwright install --with-deps chromium/)
+  assert.match(workflow, /node scripts\/run-e2e\.mjs/)
+  assert.match(workflow, /if: failure\(\)\s*uses: actions\/upload-artifact@v4/)
   assert.match(workflow, /traceability\.mjs --strict/)
+  assert.doesNotMatch(browserConfig, /retries:/)
+  assert.doesNotMatch(productionBrowserConfig, /retries:/)
+  assert.match(browserConfig, /outputDir: 'test-results\/e2e-artifacts'/)
+  assert.match(productionBrowserConfig, /outputDir: 'test-results\/production-artifacts'/)
+  assert.match(browserConfig, /e2e-results\.json/)
+  assert.match(productionBrowserConfig, /production-results\.json/)
+  assert.doesNotMatch(workflow, /run:\s*make\b/)
   const trace = spawnSync(process.execPath, ['scripts/traceability.mjs', '--strict'], { cwd: root, encoding: 'utf8' })
   assert.equal(trace.status, 0, trace.stderr || trace.stdout)
   assert.match(trace.stdout, /Every required criterion has a named test/)

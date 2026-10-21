@@ -4,8 +4,10 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 1 : 0,
-  reporter: 'list',
+  outputDir: 'test-results/e2e-artifacts',
+  reporter: process.env.CI
+    ? [['list'], ['json', { outputFile: 'test-results/e2e-results.json' }]]
+    : 'list',
   use: {
     baseURL: 'http://127.0.0.1:4173',
     // Browser tests enter generated demo-only values. Do not capture form contents in traces or screenshots.
