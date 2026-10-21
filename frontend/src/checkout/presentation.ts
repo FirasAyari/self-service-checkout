@@ -35,8 +35,7 @@ export function localizedOption(id: string, name: string, language: Language): s
 
 export function localizedMenuText(text: string, language: Language): string {
   if (language !== 'pt-BR') return text
-  // shortcut: Portuguese covers the seeded menu only; add entries when the fixed catalog gains items.
-  return ({
+  const menuTranslations: Record<string, string> = {
     'Turkey melt': 'Sanduíche de peru gratinado',
     'Roasted turkey, cheddar, tomato, and toasted sourdough.': 'Peru assado, cheddar, tomate e pão de fermentação natural tostado.',
     'Garden wrap': 'Wrap de legumes',
@@ -61,7 +60,21 @@ export function localizedMenuText(text: string, language: Language): string {
     'Slow-steeped coffee, served over ice.': 'Café extraído lentamente e servido com gelo.',
     'Fresh lemonade': 'Limonada fresca',
     'Bright lemon with just enough sweetness.': 'Limão fresco com o toque certo de doçura.',
-  } as Record<string, string>)[text] ?? text
+  }
+  const optionTranslations: Record<string, string> = {
+    Small: 'Pequeno',
+    Large: 'Grande',
+    'Oat milk': 'Leite de aveia',
+    'Extra shot': 'Dose extra',
+  }
+
+  const configuredLine = /^(.+?) \(([^()]*)\)$/.exec(text)
+  if (!configuredLine) return menuTranslations[text] ?? text
+
+  const [, itemName, selectedOptions] = configuredLine
+  const translatedItemName = menuTranslations[itemName] ?? itemName
+  const translatedOptions = selectedOptions.split(', ').map((option) => optionTranslations[option] ?? option)
+  return `${translatedItemName} (${translatedOptions.join(', ')})`
 }
 
 export function categoryName(name: string, language: Language, copy: Copy): string {

@@ -102,6 +102,35 @@ describe('checkout client acceptance criteria', () => {
     expect(api.quote).toHaveBeenCalledWith([{ itemId: 'cold-brew', quantity: 1, optionIds: ['large', 'oat-milk'] }])
   })
 
+  it('BR-K8 localizes configured option names in review, payment, and the receipt', async () => {
+    const optionMenu: Menu = { ...menu, categories: [{ name: 'Drinks', items: [{
+      id: 'cold-brew', category: 'Drinks', name: 'Cold brew', description: 'Slow-steeped coffee.', priceCents: 425, stock: 12, isAvailable: true,
+      optionGroups: [
+        { id: 'size', name: 'Size', isRequired: true, maximumSelections: 1, options: [{ id: 'small', name: 'Small', additionalPriceCents: 0 }, { id: 'large', name: 'Large', additionalPriceCents: 125 }] },
+        { id: 'extras', name: 'Add-ons', isRequired: false, maximumSelections: 2, options: [{ id: 'oat-milk', name: 'Oat milk', additionalPriceCents: 50 }, { id: 'extra-shot', name: 'Extra shot', additionalPriceCents: 100 }] },
+      ],
+    }] }] }
+    const configuredQuote: Quote = { ...quote, lines: [{ itemId: 'cold-brew', name: 'Cold brew (Large, Oat milk)', quantity: 1, unitPriceCents: 600, lineTotalCents: 600, optionIds: ['large', 'oat-milk'] }], totalCents: 600, taxCents: 44 }
+    vi.mocked(api.menu).mockResolvedValue(optionMenu)
+    vi.mocked(api.quote).mockResolvedValue(configuredQuote)
+    vi.mocked(api.placeOrder).mockResolvedValue({ ...paidOrder, lines: configuredQuote.lines, totalCents: 600, taxCents: 44 })
+
+    render(<App />)
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Language' }), { target: { value: 'pt-BR' } })
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Tamanho' }), { target: { value: 'large' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: /Leite de aveia/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar Café extraído a frio' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar pedido' }))
+
+    const localizedName = 'Café extraído a frio (Grande, Leite de aveia)'
+    expect(await screen.findByText(localizedName)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar para fazer o pedido' }))
+    expect(await screen.findByText(new RegExp(localizedName.replace(/[()]/g, '\\$&')))).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^Fazer pedido de demonstração/ }))
+    expect(await screen.findByRole('heading', { name: 'Uma ótima escolha.' })).toBeTruthy()
+    expect(screen.getByText(new RegExp(localizedName.replace(/[()]/g, '\\$&')))).toBeTruthy()
+  })
+
   it('AC-M1 / AC-M2 renders available and sold-out catalog items accessibly', async () => {
     render(<App />)
     expect(await screen.findByRole('button', { name: 'Add Garden sandwich' })).toBeTruthy()

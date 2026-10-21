@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { messages } from '../copy'
-import { categoryName, formatMoney } from './presentation'
+import { categoryName, formatMoney, localizedMenuText } from './presentation'
 
 describe('BR-M4 currency formatting', () => {
   it('uses integer cents and the selected deployment currency and locale', () => {
@@ -19,5 +19,14 @@ describe('BR-K8 category localization', () => {
     expect(categoryName('Drinks', 'pt-BR', copy)).toBe('Bebidas')
     expect(categoryName('Seasonal', 'pt-BR', copy)).toBe('Seasonal')
     expect(categoryName('Sandwiches', 'en', messages.en)).toBe('Sandwiches')
+  })
+
+  it('localizes configured option names in server-priced order lines', () => {
+    expect(localizedMenuText('Cold brew (Large, Oat milk)', 'pt-BR'))
+      .toBe('Café extraído a frio (Grande, Leite de aveia)')
+    expect(localizedMenuText('Cold brew (Small, Extra shot)', 'pt-BR'))
+      .toBe('Café extraído a frio (Pequeno, Dose extra)')
+    expect(localizedMenuText('Cold brew (Large, Oat milk)', 'en'))
+      .toBe('Cold brew (Large, Oat milk)')
   })
 })
