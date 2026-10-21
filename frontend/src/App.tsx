@@ -6,7 +6,8 @@ import { PaymentScreen } from './checkout/PaymentScreen'
 import { ATTEMPT_STORAGE_KEY, CART_STORAGE_KEY, EMPTY_OPTION_IDS, PAYMENT_RETRY_STORAGE_KEY, createInitialState, readPaymentCooldownSeconds, reducer, type StoredAttempt } from './checkout/state'
 import { categoryName, defaultOptionIds, formatMoney, selectedUnitPrice, withRequiredOptionDefaults } from './checkout/presentation'
 import { CompleteScreen, ErrorBoundary, MenuCard, ProcessingScreen, ReviewScreen } from './checkout/screens'
-import { useCheckoutFlow } from './checkout/useCheckoutFlow'
+import { useCatalogQuoteFlow } from './checkout/useCatalogQuoteFlow'
+import { usePaymentFlow } from './checkout/usePaymentFlow'
 
 const demoOutcomeSelectionEnabled = isDemoOutcomeSelectionEnabled(import.meta.env.MODE)
 export function App() {
@@ -24,7 +25,8 @@ export function App() {
   const clearDialogRef = useRef<HTMLElement | null>(null)
   const lastFocusedScreen = useRef(state.screen)
   const undoTimer = useRef<number | null>(null)
-  const { loadMenu, refreshQuote, checkStatus, submitPayment, retrySameAttempt, retryAfterDecline } = useCheckoutFlow(state, dispatch, copy, setPaymentCooldownSeconds)
+  const { loadMenu, refreshQuote } = useCatalogQuoteFlow(state, dispatch, copy)
+  const { checkStatus, submitPayment, retrySameAttempt, retryAfterDecline } = usePaymentFlow(state, dispatch, copy, setPaymentCooldownSeconds, refreshQuote)
   const cartCount = useMemo(() => Object.values(state.cart).reduce((sum, line) => sum + line.quantity, 0), [state.cart])
   const cartTotalCents = useMemo(() => Object.entries(state.cart).reduce((sum, [itemId, line]) => {
     const item = state.menu?.categories.flatMap((group) => group.items).find((candidate) => candidate.id === itemId)

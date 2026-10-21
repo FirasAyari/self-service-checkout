@@ -29,7 +29,7 @@ test('AC-D1 setup and development entry points are wired to the API and frontend
   assert.match(webPackage.scripts.dev, /vite/)
   assert.match(vite, /proxy:\s*\{\s*'\/api':\s*'http:\/\/127\.0\.0\.1:5080'/)
   assert.match(runApi, /SelfServiceCheckout\.csproj/)
-  assert.match(workflow, /runs-on:\s*ubuntu-latest/)
+  assert.equal((workflow.match(/runs-on:\s*ubuntu-24\.04/g) ?? []).length, 3)
   assert.match(workflow, /run: dotnet restore backend\/SelfServiceCheckout\.slnx/)
   assert.match(workflow, /run: npm ci --prefix frontend/)
   assert.doesNotMatch(workflow, /run:\s*make\b/)
