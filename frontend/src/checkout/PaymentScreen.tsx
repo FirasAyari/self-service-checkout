@@ -1,5 +1,6 @@
 import type { Quote, Scenario } from '../api'
 import type { Copy, Language } from '../copy'
+import { localizedMenuText } from './presentation'
 
 type PaymentScreenProps = {
   quote: Quote
@@ -49,7 +50,7 @@ export function PaymentScreen({
           <ul className="payment-summary">
             {quote.lines.map((line) => (
               <li key={line.itemId}>
-                <span>{line.quantity} &#215; {line.name}</span>
+                <span>{line.quantity} &#215; {localizedMenuText(line.name, language)}</span>
                 <strong>{formatMoney(line.lineTotalCents, quote.currency, language)}</strong>
               </li>
             ))}

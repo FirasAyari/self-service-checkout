@@ -3,7 +3,7 @@ import { isDemoOutcomeSelectionEnabled } from './demo-outcome-selection'
 import { messages, type Language } from './copy'
 import { PaymentScreen } from './checkout/PaymentScreen'
 import { ATTEMPT_STORAGE_KEY, CART_STORAGE_KEY, EMPTY_OPTION_IDS, PAYMENT_RETRY_STORAGE_KEY, createInitialState, readPaymentCooldownSeconds, reducer, type StoredAttempt } from './checkout/state'
-import { categoryName, formatMoney, selectedUnitPrice, withRequiredOptionDefaults } from './checkout/presentation'
+import { categoryName, formatMoney, localizedMenuText, selectedUnitPrice, withRequiredOptionDefaults } from './checkout/presentation'
 import { CompleteScreen, ErrorBoundary, MenuCard, ProcessingScreen, ReviewScreen } from './checkout/screens'
 import { useCatalogQuoteFlow } from './checkout/useCatalogQuoteFlow'
 import { useCartActions } from './checkout/useCartActions'
@@ -96,12 +96,18 @@ export function App() {
     <div className="app-shell">
       <a className="skip-link" href="#top">{copy.skipToMain}</a>
       <header className="topbar">
-        <a className="brand" href="#top"><img className="brand-mark" src="/goodtable-mark.png" alt="" />
-          <span>goodtable<span className="brand-period">.</span><small>{copy.tagline}</small></span></a>
+        <a className="brand" href="#top" aria-label="Good Table — Fresh food, good vibes">
+          <svg className="brand-mark" viewBox="0 0 24 28" aria-hidden="true">
+            <path d="M12 25V14" fill="none" stroke="#315239" strokeLinecap="round" strokeWidth="1.7" />
+            <path d="M11.5 17.4C5.9 17 2.9 13.7 3.4 8.1c5.4.2 8.8 3.1 8.6 8.6" fill="#758765" />
+            <path d="M12.2 15.4C12.6 9.8 16.1 6.1 21.6 5.6c.2 5.5-3 9.3-9.1 11.2" fill="#c7a168" />
+          </svg>
+          <span className="brand-wordmark">good table</span>
+        </a>
         <div className="topbar-right">
           <label className="language-picker"><span>{copy.language}</span><select value={language} onChange={(event) => setLanguage(event.target.value as Language)} aria-label={copy.language}>
             <option value="en">{copy.english}</option><option value="pt-BR">{copy.portuguese}</option></select></label>
-          <span className="service-pill"><span className="status-dot" aria-hidden="true" />{copy.service}</span>
+          <span className="service-pill"><span className="status-dot" aria-hidden="true" /><span className="service-label-full">{copy.service}</span><span className="service-label-short" aria-hidden="true">{copy.serviceShort}</span></span>
           <span className="order-step" aria-label={copy.step(step)}><span>{String(step).padStart(2, '0')}</span> / 03</span>
         </div>
       </header>
@@ -153,7 +159,7 @@ export function App() {
 
       <footer className="site-footer"><span>{copy.footerOne}</span><span>{copy.footerTwo}</span></footer>
 
-      {cartActions.undoItem && <div className="undo-toast" role="status" aria-live="polite"><span>{copy.undoRemoved(cartActions.undoItem.name)} {cartActions.undoSeconds}</span>
+      {cartActions.undoItem && <div className="undo-toast" role="status" aria-live="polite"><span>{copy.undoRemoved(localizedMenuText(cartActions.undoItem.name, language))} {cartActions.undoSeconds}</span>
         <button className="text-button" onClick={cartActions.restoreRemovedItem}>{copy.undo}</button></div>}
 
       {kioskSession.showIdlePrompt && <div className="modal-backdrop"><section ref={idleDialogRef} className="idle-dialog" role="alertdialog" aria-modal="true" aria-labelledby="idle-title" aria-describedby="idle-copy">

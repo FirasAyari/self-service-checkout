@@ -33,6 +33,37 @@ export function localizedOption(id: string, name: string, language: Language): s
   return ({ small: 'Pequeno', large: 'Grande', 'oat-milk': 'Leite de aveia', 'extra-shot': 'Dose extra' } as Record<string, string>)[id] ?? name
 }
 
+export function localizedMenuText(text: string, language: Language): string {
+  if (language !== 'pt-BR') return text
+  // shortcut: Portuguese covers the seeded menu only; add entries when the fixed catalog gains items.
+  return ({
+    'Turkey melt': 'Sanduíche de peru gratinado',
+    'Roasted turkey, cheddar, tomato, and toasted sourdough.': 'Peru assado, cheddar, tomate e pão de fermentação natural tostado.',
+    'Garden wrap': 'Wrap de legumes',
+    'Hummus, cucumber, greens, and pickled onion.': 'Homus, pepino, folhas verdes e cebola em conserva.',
+    'Chicken club': 'Sanduíche club de frango',
+    'Grilled chicken, crisp lettuce, and herb mayo.': 'Frango grelhado, alface crocante e maionese de ervas.',
+    'Tomato panini': 'Panini de tomate',
+    'Mozzarella, basil, and roasted tomato.': 'Muçarela, manjericão e tomate assado.',
+    'Green grain bowl': 'Tigela de grãos verdes',
+    'Warm grains, avocado, greens, and lemon dressing.': 'Grãos quentes, abacate, folhas verdes e molho de limão.',
+    'Chicken harvest bowl': 'Tigela de frango com legumes da estação',
+    'Grilled chicken, brown rice, and seasonal vegetables.': 'Frango grelhado, arroz integral e legumes da estação.',
+    'Falafel bowl': 'Tigela de falafel',
+    'Crisp falafel, hummus, cucumber, and tahini.': 'Falafel crocante, homus, pepino e tahine.',
+    'Soup of the day': 'Sopa do dia',
+    'A warm cup made fresh each morning.': 'Uma sopa quentinha, preparada todas as manhãs.',
+    'Sparkling water': 'Água com gás',
+    'Cold, lightly sparkling water.': 'Água gelada com gás suave.',
+    'House iced tea': 'Chá gelado da casa',
+    'Unsweetened black tea with lemon.': 'Chá preto sem açúcar com limão.',
+    'Cold brew': 'Café extraído a frio',
+    'Slow-steeped coffee, served over ice.': 'Café extraído lentamente e servido com gelo.',
+    'Fresh lemonade': 'Limonada fresca',
+    'Bright lemon with just enough sweetness.': 'Limão fresco com o toque certo de doçura.',
+  } as Record<string, string>)[text] ?? text
+}
+
 export function categoryName(name: string, language: Language, copy: Copy): string {
   if (name === 'All') return copy.all
   if (language === 'pt-BR') return ({ Sandwiches: 'Sanduíches', Bowls: 'Tigelas', Drinks: 'Bebidas' } as Record<string, string>)[name] ?? name

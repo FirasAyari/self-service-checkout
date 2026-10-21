@@ -1,11 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
-  <title id="title">Goodtable</title>
-  <rect x="2" y="2" width="60" height="60" rx="17" fill="#173b21"/>
-  <path d="M14 34h36c-1.9 11.4-7.6 17-18 17S15.9 45.4 14 34Z" fill="#f7f0d8" stroke="#d8a94d" stroke-width="2.5" stroke-linejoin="round"/>
-  <path d="M17 34c4 4.6 9.1 7 15 7s11-2.4 15-7" fill="none" stroke="#d8a94d" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M31 30C30 17 41 9 52 10c-1 12-8.7 20.1-21 20Z" fill="#73a94f" stroke="#e3c36c" stroke-width="2" stroke-linejoin="round"/>
-  <path d="M32 29c5-5 10-9 16-13" fill="none" stroke="#f3eacb" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="23" cy="31" r="2" fill="#d86242"/>
-  <circle cx="31" cy="31" r="2" fill="#f3c84b"/>
-  <circle cx="39" cy="31" r="2" fill="#d86242"/>
+  <title id="title">Good Table</title>
+  <image href="/favicon.png" width="64" height="64" preserveAspectRatio="xMidYMid slice"/>
 </svg>
