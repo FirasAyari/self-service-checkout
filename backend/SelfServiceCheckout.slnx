@@ -3,7 +3,9 @@
     <Project Path="src/Checkout.Domain/Checkout.Domain.csproj" />
   </Folder>
   <Folder Name="/src/SelfServiceCheckout/">
+    <Project Path="src/SelfServiceCheckout/SelfServiceCheckout.Application/SelfServiceCheckout.Application.csproj" />
     <Project Path="src/SelfServiceCheckout/SelfServiceCheckout.Contracts/SelfServiceCheckout.Contracts.csproj" />
+    <Project Path="src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/SelfServiceCheckout.Infrastructure.Sqlite.csproj" />
     <Project Path="src/SelfServiceCheckout/SelfServiceCheckout/SelfServiceCheckout.csproj" />
   </Folder>
   <Folder Name="/tests/">

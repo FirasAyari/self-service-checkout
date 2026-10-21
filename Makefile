@@ -1,18 +1,18 @@
-.PHONY: setup dev build test e2e trace check clean api-types api-snapshot chaos-latency chaos-decline chaos-timeout-after-charge chaos-timeout-no-charge chaos-drop-response chaos-crash-after-reservation chaos-clear
+.PHONY: setup dev build test e2e trace check clean api-types api-snapshot docker-build docker-up docker-down docker-smoke chaos-latency chaos-decline chaos-timeout-after-charge chaos-timeout-no-charge chaos-drop-response chaos-crash-after-reservation chaos-clear
 
-SOLUTION := SelfServiceCheckout.slnx
+SOLUTION := backend/SelfServiceCheckout.slnx
 DEMO_API_URL ?= http://127.0.0.1:5080
 
 setup:
 	node scripts/dotnet.mjs tool restore
 	node scripts/dotnet.mjs restore $(SOLUTION)
-	npm --prefix web ci
+	npm --prefix frontend ci
 
 dev:
-	npm --prefix web run dev
+	npm --prefix frontend run dev
 
 build:
-	npm --prefix web run build
+	npm --prefix frontend run build
 	node scripts/dotnet.mjs build $(SOLUTION) --configuration Release
 
 test:
@@ -25,10 +25,22 @@ trace:
 	node scripts/traceability.mjs --strict
 
 api-types:
-	npm --prefix web run api:types
+	npm --prefix frontend run api:types
 
 api-snapshot:
-	npm --prefix web run api:update
+	npm --prefix frontend run api:update
+
+docker-build:
+	docker compose build
+
+docker-up:
+	docker compose up --build
+
+docker-down:
+	docker compose down
+
+docker-smoke:
+	node scripts/docker-smoke.mjs
 
 chaos-latency:
 	@test -n "$$DEMO_ADMIN_TOKEN" || { echo 'Set DEMO_ADMIN_TOKEN before using demo presets.' >&2; exit 1; }
@@ -60,10 +72,10 @@ chaos-clear:
 
 check:
 	node scripts/generate-api-types.mjs --check
-	npm --prefix web run typecheck
+	npm --prefix frontend run typecheck
 	node scripts/run-lint.mjs
 	node scripts/dotnet.mjs build $(SOLUTION) --configuration Release
-	npm --prefix web run build
+	npm --prefix frontend run build
 	node scripts/run-tests.mjs
 	node scripts/traceability.mjs --strict
 
