@@ -253,8 +253,10 @@ describe('checkout client acceptance criteria', () => {
     render(<App />)
     expect(await screen.findByRole('heading', { name: 'That’s a good choice.' })).toBeTruthy()
     expect(api.status).toHaveBeenCalledWith('a'.repeat(32))
-    expect(sessionStorage.getItem('goodtable.attempt.v1')).toBeNull()
-    expect(sessionStorage.getItem('goodtable.cart.v1')).toBeNull()
+    await waitFor(() => {
+      expect(sessionStorage.getItem('goodtable.attempt.v1')).toBeNull()
+      expect(sessionStorage.getItem('goodtable.cart.v1')).toBeNull()
+    })
   })
 
   it('BR-S4 shows low stock at five units and hides the badge at six', async () => {
