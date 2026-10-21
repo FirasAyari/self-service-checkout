@@ -9,6 +9,29 @@ public sealed class CheckoutOptions
     public int QuoteLifetimeSeconds { get; init; } = 120;
     public string BusinessTimeZone { get; init; } = "UTC";
     public string KioskId { get; init; } = "kiosk-1";
+
+    public static bool IsValidBusinessTimeZone(string? timeZoneId)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId)) return false;
+
+        try
+        {
+            _ = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+            return true;
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return false;
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return false;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
 }
 
 public sealed class DemoModeOptions
@@ -22,10 +45,10 @@ public sealed class DemoModeOptions
 public sealed class CheckoutException(
     string code,
     string message,
-    int statusCode,
+    CheckoutFailureKind kind,
     int? retryAfterSeconds = null) : Exception(message)
 {
     public string Code { get; } = code;
-    public int StatusCode { get; } = statusCode;
+    public CheckoutFailureKind Kind { get; } = kind;
     public int? RetryAfterSeconds { get; } = retryAfterSeconds;
 }
