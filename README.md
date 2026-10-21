@@ -119,15 +119,24 @@ Catalog changes, demo reset, and server-side mock/chaos overrides are available 
 - `frontend/src/checkout` separates reducer/session state, presentation helpers, checkout screens, cart actions, kiosk session behavior, and payment UI; `App.tsx` composes those flows.
 - `scripts/architecture-boundaries.test.mjs` guards project references and prevents framework/storage references from entering Domain or Application and persistence references from leaking into the HTTP host. `backend/tests` and `frontend` contain the behavior suites.
 
+### Runtime architecture
+
+The source-linked [interactive Archify diagram](.archify/architecture-self-service-checkout-20261021/checkout-architecture.html) and its [editable JSON source](.archify/architecture-self-service-checkout-20261021/candidate.json) were generated from repository commit `c7b2bcae4a5c7e7304c6d5460065372ec0cdc6a4`.
+
 ```mermaid
 flowchart LR
-  Browser[React client] --> Host[ASP.NET Core host]
-  Host --> App[Application]
-  Host --> Infra[SQLite infrastructure]
-  App --> Domain[Checkout domain]
-  Host --> Contracts[Wire contracts]
-  Infra --> App
-  Infra --> Domain
+  Kiosk[React kiosk client]
+  subgraph Server[Server-side trust boundary]
+    direction LR
+    Host[ASP.NET Core host]
+    Core[Application + domain]
+    Adapters[SQLite + mock adapters]
+    Database[(SQLite checkout.db)]
+    Host -->|endpoints| Core
+    Core -->|application ports| Adapters
+    Adapters -->|SQLite I/O| Database
+  end
+  Kiosk -->|JSON API| Host
 ```
 
 - `data/checkout.db` is local runtime data and is ignored by Git. SQLite is configured for the single-location demo, not multi-instance production traffic.

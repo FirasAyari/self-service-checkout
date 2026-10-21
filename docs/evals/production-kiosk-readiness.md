@@ -25,13 +25,14 @@ This product evaluation defines measurable release gates for the checkout demo a
 | EVAL-REG-05 | The documented Unix development entry point starts both services and releases them after the smoke. | `node scripts/dev-smoke.mjs` in the Ubuntu CI job. | The API health endpoint and Vite root both return success, and the smoke process group is stopped when the check ends. |
 | EVAL-REG-06 | The published Docker image works with production defaults and persistent order state. | `node scripts/docker-smoke.mjs` in the frontend CI job. | Packaged assets load, oversized requests receive 413, production forces simulated approval, and the same order is replayed after a container restart. |
 
-For payment, reservation, retry, and unknown-outcome regressions, release promotion requires three consecutive successful CI runs (`pass^3`). A single local run is recorded as `pass@1`, not as stability evidence.
+For payment, reservation, retry, and unknown-outcome regressions, release promotion requires three consecutive successful CI runs (`pass^3`). As of 2026-10-21, the latest recorded Actions run [39660811144](https://github.com/FirasAyari/self-service-checkout/actions/runs/39660811144) passed once on `c7b2bca` (`pass@1`); it predates the current local edits and does not satisfy the gate. Record later successful CI runs here before treating the stability gate as met.
 
 ## Human and environment gates
 
 These gates cannot be satisfied by this repository's automated tests alone:
 
 - Restore a recent production database backup in a clean environment and verify order, inventory, and payment reconciliation.
+- Have the data owner approve order/idempotency retention and archive rules, including replay safety and authorized deletion.
 - Verify TLS, trusted proxy and host settings, kiosk OS lockdown, printer/device behavior, touch input, on-screen keyboard, screen reader, zoom, and idle-session reset on the actual target hardware.
 - Approve the operating runbook for ambiguous demo outcomes, stuck reservations, service outage, inventory mismatch, incident response, and rollback.
 

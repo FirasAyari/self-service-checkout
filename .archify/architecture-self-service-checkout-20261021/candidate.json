@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Goodtable Self-Service Checkout",
+    "locale": "en",
+    "output": ".archify/architecture-self-service-checkout-20261021/checkout-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/FirasAyari/self-service-checkout.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "c7b2bcae4a5c7e7304c6d5460065372ec0cdc6a4"
+    }
+  },
+  "components": [
+    {
+      "id": "kiosk",
+      "type": "frontend",
+      "label": "React kiosk client",
+      "sublabel": "Menu, quote, order, recovery",
+      "sources": [
+        { "path": "frontend/src/api.ts", "line": 100, "end_line": 113 },
+        { "path": "frontend/src/checkout/usePaymentFlow.ts", "line": 49, "end_line": 99 }
+      ],
+      "pos": [40, 128],
+      "size": [178, 88]
+    },
+    {
+      "id": "host",
+      "type": "backend",
+      "label": "ASP.NET Core host",
+      "sublabel": ".NET 10 API + hosted reconciler",
+      "sources": [
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout/Api/CheckoutEndpoints.cs", "line": 11, "end_line": 56 },
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout/Program.cs", "line": 33, "end_line": 38 },
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout/HostedServices/PaymentReconciler.cs", "line": 5, "end_line": 41 }
+      ],
+      "pos": [318, 128],
+      "size": [188, 88]
+    },
+    {
+      "id": "core",
+      "type": "backend",
+      "label": "Application + domain",
+      "sublabel": "Quotes, checkout, business rules",
+      "sources": [
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Application/CatalogService.cs", "line": 38, "end_line": 103 },
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Application/CheckoutService.cs", "line": 6, "end_line": 81 },
+        { "path": "backend/src/Checkout.Domain/CheckoutRules.cs", "line": 22, "end_line": 43 }
+      ],
+      "pos": [606, 128],
+      "size": [200, 88]
+    },
+    {
+      "id": "adapters",
+      "type": "backend",
+      "label": "SQLite + mock adapters",
+      "sublabel": "Catalog, reservations, simulated outcomes",
+      "sources": [
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/SqliteCheckoutServiceCollectionExtensions.cs", "line": 26, "end_line": 41 },
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/Services/SqliteCatalogStore.cs", "line": 10, "end_line": 53 },
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/Services/MockPaymentGateway.cs", "line": 11, "end_line": 60 }
+      ],
+      "pos": [906, 128],
+      "size": [218, 88]
+    },
+    {
+      "id": "database",
+      "type": "database",
+      "label": "SQLite checkout.db",
+      "sublabel": "One host · Docker named volume",
+      "sources": [
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout/Program.cs", "line": 27, "end_line": 33 },
+        { "path": "backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite/Data/CheckoutDbContext.cs", "line": 7, "end_line": 14 },
+        { "path": "compose.yaml", "line": 9, "end_line": 20 }
+      ],
+      "pos": [1224, 128],
+      "size": [174, 88]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Server-side trust boundary",
+      "wraps": ["host", "core", "adapters", "database"],
+      "pad": 24
+    }
+  ],
+  "connections": [
+    { "id": "client-api", "from": "kiosk", "to": "host", "label": "JSON API", "variant": "emphasis" },
+    { "id": "api-core", "from": "host", "to": "core", "label": "endpoints" },
+    { "id": "core-adapters", "from": "core", "to": "adapters", "label": "application ports" },
+    { "id": "adapters-db", "from": "adapters", "to": "database", "label": "SQLite I/O" }
+  ]
+}

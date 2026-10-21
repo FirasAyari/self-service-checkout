@@ -35,6 +35,6 @@ export function localizedOption(id: string, name: string, language: Language): s
 
 export function categoryName(name: string, language: Language, copy: Copy): string {
   if (name === 'All') return copy.all
-  if (language === 'pt-BR') return ({ Sandwiches: 'SanduÃ­ches', Bowls: 'Tigelas', Drinks: 'Bebidas' } as Record<string, string>)[name] ?? name
+  if (language === 'pt-BR') return ({ Sandwiches: 'Sanduíches', Bowls: 'Tigelas', Drinks: 'Bebidas' } as Record<string, string>)[name] ?? name
   return name
 }

@@ -58,19 +58,20 @@ For a release rollback, stop the service and preserve the current database befor
 
 ## Demo database retention and decommissioning
 
-The bounded demo retains order and idempotency records for the lifetime of its SQLite database. It does not automatically purge these records because a replay may depend on them. Before removing a demo database, follow the operator's approved backup and record-handling requirements and record who authorized decommissioning. A real business deployment needs an owner-approved retention period and an archive/purge design that preserves replay safety for that period; this demo does not supply that policy.
+The bounded demo retains order and idempotency records for the lifetime of its SQLite database. It does not automatically purge these records because a replay may depend on them. Before removing a demo database, follow the operator's approved backup and record-handling requirements and record who authorized decommissioning. Before any real business pilot, the data owner must approve how long orders and idempotency records are retained, where archives are stored, who can access them, and how deletion is authorized. The policy must preserve idempotency replay for the full retry window; do not purge idempotency records independently of their orders. This demo does not implement that retention or archive policy.
 
 ## Pending simulated order
 
 Production mode forces the local simulated approval and never charges money. If an order remains pending beyond the 30-second reconciliation window:
 
 1. Take the kiosk out of customer service and keep the current checkout tab open. Do not start a second order with a new idempotency key.
-2. Check `/health/live` and `/health/ready`. Keep the service and database available so reconciliation can finish if a durable result exists.
-3. Record the kiosk ID, order reference, time, health status, and application logs. The checkout does not collect card credentials.
-4. Preserve the database and logs. Do not run Development demo-reset commands or edit order, ledger, or stock rows directly.
-5. Return the kiosk to service only after the order has a terminal status and a named operator records the recovery.
+2. From the original checkout screen, use its status check or same-attempt retry. Never create a new attempt to resolve an uncertain one.
+3. Check `/health/live` and `/health/ready`. Keep the service and database available so reconciliation can finish if a durable result exists.
+4. Record the kiosk ID, time and time zone, application version, visible attempt/order reference if available, health status, and relevant application logs. Do not record customer session data. The checkout does not collect card credentials.
+5. Preserve the database and logs. Do not run Development demo-reset commands or edit order, ledger, or stock rows directly.
+6. Return the kiosk to service only after the order has a terminal status and a named operator records the recovery.
 
-The application has no Production operator screen or safe manual settlement endpoint. If the order has no authoritative result, leave it pending and escalate to the application maintainer; repository policy does not allow guessing an outcome or releasing the reservation.
+The application has no Production operator screen or safe manual settlement endpoint. If the original attempt remains pending, leave it pending, keep the kiosk out of service, preserve the database, and escalate to the named application maintainer with the recovery record above. The maintainer must not guess an outcome or release the reservation by editing the database. The demo has no automated or operator-controlled way to resolve an attempt with no authoritative result; a real kiosk pilot is blocked until an owner-approved recovery capability and procedure exist.
 
 ## Out of scope for this submission: target-kiosk validation
 
