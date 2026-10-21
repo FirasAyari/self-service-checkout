@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import type { MenuItem } from './api'
 import { isDemoOutcomeSelectionEnabled } from './demo-outcome-selection'
 import { messages, type Language } from './copy'
 import { PaymentScreen } from './checkout/PaymentScreen'
 import { ATTEMPT_STORAGE_KEY, CART_STORAGE_KEY, EMPTY_OPTION_IDS, PAYMENT_RETRY_STORAGE_KEY, createInitialState, readPaymentCooldownSeconds, reducer, type StoredAttempt } from './checkout/state'
-import { categoryName, defaultOptionIds, formatMoney, selectedUnitPrice, withRequiredOptionDefaults } from './checkout/presentation'
+import { categoryName, formatMoney, selectedUnitPrice, withRequiredOptionDefaults } from './checkout/presentation'
 import { CompleteScreen, ErrorBoundary, MenuCard, ProcessingScreen, ReviewScreen } from './checkout/screens'
 import { useCatalogQuoteFlow } from './checkout/useCatalogQuoteFlow'
+import { useCartActions } from './checkout/useCartActions'
+import { useKioskSession } from './checkout/useKioskSession'
 import { usePaymentFlow } from './checkout/usePaymentFlow'
 
 const demoOutcomeSelectionEnabled = isDemoOutcomeSelectionEnabled(import.meta.env.MODE)
@@ -16,15 +17,6 @@ export function App() {
   const [paymentCooldownSeconds, setPaymentCooldownSeconds] = useState(readPaymentCooldownSeconds)
   const copy = messages[language]
   const [category, setCategory] = useState('All')
-  const [showIdlePrompt, setShowIdlePrompt] = useState(false)
-  const [showClearDialog, setShowClearDialog] = useState(false)
-  const [undoItem, setUndoItem] = useState<{ itemId: string; quantity: number; optionIds: string[]; name: string } | null>(null)
-  const [undoSeconds, setUndoSeconds] = useState(0)
-  const lastActivity = useRef(0)
-  const idleDialogRef = useRef<HTMLElement | null>(null)
-  const clearDialogRef = useRef<HTMLElement | null>(null)
-  const lastFocusedScreen = useRef(state.screen)
-  const undoTimer = useRef<number | null>(null)
   const { loadMenu, refreshQuote } = useCatalogQuoteFlow(state, dispatch, copy)
   const { checkStatus, submitPayment, retrySameAttempt, retryAfterDecline } = usePaymentFlow(state, dispatch, copy, setPaymentCooldownSeconds, refreshQuote)
   const cartCount = useMemo(() => Object.values(state.cart).reduce((sum, line) => sum + line.quantity, 0), [state.cart])
@@ -37,8 +29,18 @@ export function App() {
     .filter((group) => category === 'All' || group.name === category)
     .flatMap((group) => group.items) ?? [], [state.menu, category])
   const allItems = useMemo(() => new Map(state.menu?.categories.flatMap((group) => group.items).map((item) => [item.id, item]) ?? []), [state.menu])
-
-  useEffect(() => { lastActivity.current = Date.now() }, [])
+  const cartActions = useCartActions(state, dispatch, copy, cartCount, cartTotalCents, allItems, refreshQuote)
+  const idleDialogRef = useRef<HTMLElement | null>(null)
+  const clearDialogRef = useRef<HTMLElement | null>(null)
+  const kioskSession = useKioskSession(
+    state,
+    dispatch,
+    idleDialogRef,
+    clearDialogRef,
+    cartActions.showClearDialog,
+    cartActions.cancelClearOrder,
+    cartActions.clearUndo,
+  )
 
   useEffect(() => {
     if (!state.menu) return
@@ -76,12 +78,6 @@ export function App() {
   }, [language])
 
   useEffect(() => {
-    if (lastFocusedScreen.current === state.screen) return
-    lastFocusedScreen.current = state.screen
-    document.querySelector<HTMLElement>(state.screen === 'browse' ? '#menu-title' : '#top h1')?.focus()
-  }, [state.screen])
-
-  useEffect(() => {
     const updateCooldown = () => {
       let retryAt = 0
       try { retryAt = Number(sessionStorage.getItem(PAYMENT_RETRY_STORAGE_KEY)) } catch { /* keep the in-memory countdown */ }
@@ -94,138 +90,6 @@ export function App() {
     return () => window.clearInterval(timer)
   }, [])
 
-  useEffect(() => {
-    const markActivity = () => { lastActivity.current = Date.now() }
-    window.addEventListener('pointerdown', markActivity, { passive: true })
-    window.addEventListener('keydown', markActivity)
-    const timer = window.setInterval(() => {
-      if (state.screen === 'processing' || state.busy || (state.screen === 'complete' && state.order?.status === 'PENDING_PAYMENT')) return
-      if (Date.now() - lastActivity.current > 60_000) setShowIdlePrompt(true)
-    }, 1_000)
-    return () => {
-      window.removeEventListener('pointerdown', markActivity)
-      window.removeEventListener('keydown', markActivity)
-      window.clearInterval(timer)
-    }
-  }, [state.screen, state.busy, state.order])
-
-  useEffect(() => {
-    if (!showIdlePrompt && !showClearDialog) return
-    const dialog = showIdlePrompt ? idleDialogRef.current : clearDialogRef.current
-    const buttons = dialog?.querySelectorAll<HTMLButtonElement>('button')
-    buttons?.[showIdlePrompt ? 1 : 0]?.focus()
-    const containFocus = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (showIdlePrompt) {
-          setShowIdlePrompt(false)
-          lastActivity.current = Date.now()
-        } else setShowClearDialog(false)
-        return
-      }
-      if (event.key !== 'Tab' || !buttons?.length) return
-      const first = buttons[0]
-      const last = buttons[buttons.length - 1]
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
-    }
-    window.addEventListener('keydown', containFocus)
-    const timer = showIdlePrompt ? window.setTimeout(() => {
-      setShowIdlePrompt(false)
-      dispatch({ type: 'idle-reset' })
-      lastActivity.current = Date.now()
-    }, 15_000) : null
-    return () => { if (timer !== null) window.clearTimeout(timer); window.removeEventListener('keydown', containFocus) }
-  }, [showIdlePrompt, showClearDialog])
-
-  useEffect(() => () => { if (undoTimer.current !== null) window.clearTimeout(undoTimer.current) }, [])
-
-  function limitReason(item: MenuItem, adding: boolean, optionIds?: string[]): string | undefined {
-    if (!adding) return undefined
-    const quantity = state.cart[item.id]?.quantity ?? 0
-    if (!item.isAvailable || (item.stock !== null && quantity >= item.stock)) return copy.limitStock
-    if (quantity >= 10) return copy.limitPerLine
-    if (cartCount >= 30) return copy.limitUnits
-    if (quantity === 0 && Object.keys(state.cart).length >= 15) return copy.limitLines
-    const proposedUnitPrice = selectedUnitPrice(item, optionIds ?? state.cart[item.id]?.optionIds ?? defaultOptionIds(item))
-    if (cartTotalCents + proposedUnitPrice > 15_000) return copy.limitTotal
-    return undefined
-  }
-
-  function changeQuantity(itemId: string, quantity: number, allowUndo = false, optionIds?: string[]) {
-    const currentLine = state.cart[itemId]
-    const current = currentLine?.quantity ?? 0
-    const item = allItems.get(itemId)
-    const selectedOptions = optionIds ?? currentLine?.optionIds ?? (item ? defaultOptionIds(item) : [])
-    if (item && quantity > 0) {
-      const oldLineTotal = selectedUnitPrice(item, currentLine?.optionIds ?? []) * current
-      const proposedTotal = cartTotalCents - oldLineTotal + selectedUnitPrice(item, selectedOptions) * quantity
-      if (proposedTotal > 15_000) return
-    }
-    if (quantity > current && item && limitReason(item, true, selectedOptions)) return
-    if (allowUndo && current > 0 && quantity === 0 && item) {
-      setUndoItem({ itemId, quantity: current, optionIds: currentLine?.optionIds ?? [], name: item.name })
-      setUndoSeconds(5)
-      if (undoTimer.current !== null) window.clearInterval(undoTimer.current)
-      let remaining = 5
-      undoTimer.current = window.setInterval(() => {
-        remaining = Math.max(0, remaining - 1)
-        setUndoSeconds(remaining)
-        if (remaining === 0 && undoTimer.current !== null) {
-          window.clearInterval(undoTimer.current)
-          undoTimer.current = null
-          setUndoItem(null)
-        }
-      }, 200)
-    }
-    const nextCart = { ...state.cart }
-    if (quantity <= 0) delete nextCart[itemId]
-    else nextCart[itemId] = { quantity, optionIds: selectedOptions }
-    const nextChangedItemIds = state.changedItemIds.filter((changedId) => changedId !== itemId)
-    dispatch({ type: 'quantity', itemId, quantity, optionIds: selectedOptions, emptyNotice: state.screen === 'review' && quantity === 0 && Object.keys(state.cart).length === 1 ? copy.cartEmpty : undefined })
-    if (state.screen === 'review' && Object.keys(nextCart).length > 0) void refreshQuote(copy.refreshed, nextCart, nextChangedItemIds)
-  }
-
-  function restoreRemovedItem() {
-    if (!undoItem) return
-    const current = state.cart[undoItem.itemId]?.quantity ?? 0
-    const item = allItems.get(undoItem.itemId)
-    if (item && !limitReason(item, true, undoItem.optionIds)) {
-      const quantity = current + undoItem.quantity
-      const nextCart = { ...state.cart, [undoItem.itemId]: { quantity, optionIds: undoItem.optionIds } }
-      dispatch({ type: 'quantity', itemId: undoItem.itemId, quantity, optionIds: undoItem.optionIds })
-      if (state.screen === 'review') void refreshQuote(copy.refreshed, nextCart)
-    }
-    if (undoTimer.current !== null) window.clearInterval(undoTimer.current)
-    undoTimer.current = null
-    setUndoItem(null)
-  }
-
-  function clearOrder() {
-    if (undoTimer.current !== null) window.clearInterval(undoTimer.current)
-    undoTimer.current = null
-    setUndoItem(null)
-    dispatch({ type: 'clear-cart', emptyNotice: state.screen === 'review' ? copy.cartEmpty : undefined })
-  }
-
-  function requestClearOrder() {
-    if (cartCount >= 2) setShowClearDialog(true)
-    else clearOrder()
-  }
-
-  function confirmClearOrder() {
-    setShowClearDialog(false)
-    clearOrder()
-  }
-
-  function startFreshAfterIdle() {
-    if (undoTimer.current !== null) window.clearInterval(undoTimer.current)
-    undoTimer.current = null
-    setUndoItem(null)
-    setShowIdlePrompt(false)
-    dispatch({ type: 'idle-reset' })
-  }
-
-  const resumeOrder = () => { setShowIdlePrompt(false); lastActivity.current = Date.now() }
   const step = state.screen === 'browse' ? 1 : state.screen === 'review' ? 2 : 3
 
   return <ErrorBoundary copy={copy}>
@@ -261,14 +125,14 @@ export function App() {
               <span>{copy.loadingMenu}</span><div className="menu-skeleton-grid" aria-hidden="true">{[0, 1, 2].map((item) => <div className="menu-skeleton-card" key={item}><i /><b /><b /><em /></div>)}</div>
             </div> : !state.menu ? <div className="menu-state" role="alert">{state.error ?? (language === 'pt-BR' ? 'Não foi possível carregar o cardápio.' : 'We could not load the menu.')} <button className="text-button" onClick={() => void loadMenu()}>{copy.retry}</button></div> : visibleItems.length === 0 ? <div className="menu-state">{copy.noItems}</div> :
               <div className="menu-grid">{visibleItems.map((item, index) => <MenuCard key={item.id} item={item} quantity={state.cart[item.id]?.quantity ?? 0} optionIds={state.cart[item.id]?.optionIds ?? EMPTY_OPTION_IDS} index={index} language={language} copy={copy}
-                getDisabledReason={(optionIds) => limitReason(item, true, optionIds)} onChange={(quantity, optionIds) => changeQuantity(item.id, quantity, quantity === 0, optionIds)} />)}</div>}
+                getDisabledReason={(optionIds) => cartActions.limitReason(item, true, optionIds)} onChange={(quantity, optionIds) => cartActions.changeQuantity(item.id, quantity, quantity === 0, optionIds)} />)}</div>}
           </section>
         </>}
 
         {state.screen === 'review' && <ReviewScreen quote={state.quote} cart={state.cart} menuItems={allItems} language={language} copy={copy}
           busy={state.busy} error={state.error} notice={state.notice} stockIssue={state.stockIssue} changedItemIds={state.changedItemIds}
-          quoteNeedsConsent={state.quoteNeedsConsent} paymentCooldownSeconds={paymentCooldownSeconds} onBack={() => dispatch({ type: 'back-to-menu' })} onClear={requestClearOrder}
-          onQuantity={(itemId, quantity) => changeQuantity(itemId, quantity, quantity === 0)}
+          quoteNeedsConsent={state.quoteNeedsConsent} paymentCooldownSeconds={paymentCooldownSeconds} onBack={() => dispatch({ type: 'back-to-menu' })} onClear={cartActions.requestClearOrder}
+          onQuantity={(itemId, quantity) => cartActions.changeQuantity(itemId, quantity, quantity === 0)}
           onRefresh={() => void refreshQuote(copy.refreshed)} onAccept={() => dispatch({ type: 'accept-quote' })} onContinue={() => dispatch({ type: 'continue-payment' })} />}
 
         {state.screen === 'pay' && state.quote && <PaymentScreen quote={state.quote} scenario={state.scenario} language={language} copy={copy}
@@ -283,22 +147,22 @@ export function App() {
       </main>
 
       {state.screen === 'browse' && cartCount > 0 && <div className="cart-dock"><div className="dock-inner"><div className="dock-info" aria-live="polite" aria-atomic="true"><span className="cart-count">{cartCount}</span><span><strong>{copy.cart}</strong><small>{copy.choice(cartCount)} · {copy.cartTotal}: {formatMoney(cartTotalCents, 'USD', language)}</small></span></div>
-        <div className="dock-actions"><button className="text-button clear-order" onClick={requestClearOrder}>{copy.clear}</button>
+        <div className="dock-actions"><button className="text-button clear-order" onClick={cartActions.requestClearOrder}>{copy.clear}</button>
           <button className="primary-button dock-button" onClick={() => void refreshQuote()} disabled={state.busy}>{copy.review} <span aria-hidden="true">→</span></button></div>
       </div></div>}
 
       <footer className="site-footer"><span>{copy.footerOne}</span><span>{copy.footerTwo}</span></footer>
 
-      {undoItem && <div className="undo-toast" role="status" aria-live="polite"><span>{copy.undoRemoved(undoItem.name)} {undoSeconds}</span>
-        <button className="text-button" onClick={restoreRemovedItem}>{copy.undo}</button></div>}
+      {cartActions.undoItem && <div className="undo-toast" role="status" aria-live="polite"><span>{copy.undoRemoved(cartActions.undoItem.name)} {cartActions.undoSeconds}</span>
+        <button className="text-button" onClick={cartActions.restoreRemovedItem}>{copy.undo}</button></div>}
 
-      {showIdlePrompt && <div className="modal-backdrop"><section ref={idleDialogRef} className="idle-dialog" role="alertdialog" aria-modal="true" aria-labelledby="idle-title" aria-describedby="idle-copy">
+      {kioskSession.showIdlePrompt && <div className="modal-backdrop"><section ref={idleDialogRef} className="idle-dialog" role="alertdialog" aria-modal="true" aria-labelledby="idle-title" aria-describedby="idle-copy">
         <span className="eyebrow"><span className="eyebrow-line" /> {copy.cart.toUpperCase()}</span><h2 id="idle-title">{copy.stillChoosing}</h2><p id="idle-copy">{copy.idleCopy}</p>
-        <div className="idle-actions"><button className="secondary-button" onClick={startFreshAfterIdle}>{copy.freshStart}</button><button autoFocus className="primary-button" onClick={resumeOrder}>{copy.keepOrder}</button></div>
+        <div className="idle-actions"><button className="secondary-button" onClick={kioskSession.startFreshAfterIdle}>{copy.freshStart}</button><button autoFocus className="primary-button" onClick={kioskSession.resumeOrder}>{copy.keepOrder}</button></div>
       </section></div>}
-      {showClearDialog && <div className="modal-backdrop"><section ref={clearDialogRef} className="idle-dialog" role="alertdialog" aria-modal="true" aria-labelledby="clear-title" aria-describedby="clear-copy">
+      {cartActions.showClearDialog && <div className="modal-backdrop"><section ref={clearDialogRef} className="idle-dialog" role="alertdialog" aria-modal="true" aria-labelledby="clear-title" aria-describedby="clear-copy">
         <span className="eyebrow"><span className="eyebrow-line" /> {copy.cart.toUpperCase()}</span><h2 id="clear-title">{copy.confirmClearTitle}</h2><p id="clear-copy">{copy.confirmClearCopy}</p>
-        <div className="idle-actions"><button autoFocus className="secondary-button" onClick={() => setShowClearDialog(false)}>{copy.cancelClear}</button><button className="primary-button" onClick={confirmClearOrder}>{copy.confirmClear}</button></div>
+        <div className="idle-actions"><button autoFocus className="secondary-button" onClick={cartActions.cancelClearOrder}>{copy.cancelClear}</button><button className="primary-button" onClick={cartActions.confirmClearOrder}>{copy.confirmClear}</button></div>
       </section></div>}
     </div>
   </ErrorBoundary>

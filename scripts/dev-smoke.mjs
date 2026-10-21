@@ -25,11 +25,23 @@ async function isReady(url) {
 
 async function stop() {
   if (!child.pid || child.exitCode !== null || child.signalCode !== null) return
+  const exited = new Promise((resolveExit) => child.once('exit', resolveExit))
   try {
     if (process.platform === 'win32') child.kill('SIGTERM')
     else process.kill(-child.pid, 'SIGTERM')
   } catch (error) {
     if (error.code !== 'ESRCH') throw error
+  }
+  if (await Promise.race([exited.then(() => true), delay(5_000, undefined, { ref: false }).then(() => false)])) return
+
+  try {
+    if (process.platform === 'win32') child.kill('SIGKILL')
+    else process.kill(-child.pid, 'SIGKILL')
+  } catch (error) {
+    if (error.code !== 'ESRCH') throw error
+  }
+  if (!await Promise.race([exited.then(() => true), delay(1_000, undefined, { ref: false }).then(() => false)])) {
+    throw new Error('The Unix development process did not stop after termination was requested.')
   }
 }
 

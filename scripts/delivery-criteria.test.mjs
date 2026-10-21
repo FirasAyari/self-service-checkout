@@ -33,7 +33,8 @@ test('AC-D1 setup and development entry points are wired to the API and frontend
   assert.match(workflow, /run: dotnet restore backend\/SelfServiceCheckout\.slnx/)
   assert.match(workflow, /run: npm ci --prefix frontend/)
   assert.doesNotMatch(workflow, /run:\s*make\b/)
-  assert.doesNotMatch(workflow, /scripts\/dev-smoke\.mjs/)
+  assert.match(workflow, /node scripts\/dev-smoke\.mjs/)
+  assert.match(workflow, /Checkout__DatabasePath: \$\{\{ runner\.temp \}\}\/checkout-dev-smoke\.db/)
   assert.match(devSmoke, /\/healthz/)
   assert.match(devSmoke, /127\.0\.0\.1:5173/)
 })
@@ -59,7 +60,7 @@ test('AC-D1 Docker builds the full checkout and persists its SQLite data', async
   assert.match(dockerignore, /data\/\*\.db/)
   assert.match(dockerignore, /\.env\.\*/)
   assert.match(makefile, /docker-up:[\s\S]*docker compose up --build/)
-  assert.doesNotMatch(workflow, /docker compose|scripts\/docker-smoke\.mjs/)
+  assert.match(workflow, /node scripts\/docker-smoke\.mjs/)
   assert.match(runbook, /make docker-smoke/)
 })
 

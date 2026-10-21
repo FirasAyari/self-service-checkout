@@ -44,6 +44,7 @@ export type Action =
   | { type: 'order-updated'; order: OrderStatus }
   | { type: 'order-unknown'; message: string }
   | { type: 'payment-error'; message: string }
+  | { type: 'notice'; message: string }
   | { type: 'retry-declined' }
   | { type: 'new-order' }
   | { type: 'idle-reset' }
@@ -162,6 +163,7 @@ export function reducer(state: State, action: Action): State {
     }
     case 'order-unknown': return { ...state, busy: false, recovering: false, resumeStatus: false, error: action.message }
     case 'payment-error': return { ...state, busy: false, recovering: false, error: action.message, screen: 'review', idempotencyKey: null, quoteId: null }
+    case 'notice': return { ...state, notice: action.message }
     case 'retry-declined': return { ...state, screen: 'review', order: null, idempotencyKey: null, quoteId: null, busy: false, recovering: false, error: null }
     case 'new-order': return { ...EMPTY_STATE, menu: state.menu, loadingMenu: false }
     case 'idle-reset': return state.screen === 'processing' ? state : { ...EMPTY_STATE, menu: state.menu, loadingMenu: false }

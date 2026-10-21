@@ -81,7 +81,7 @@ This is a compact, ID-preserving index of the rules from the latest implementati
 | BR-X8 | Expired quotes are retained for 24 hours after expiration, then removed in batches of at most 500. |
 | BR-U1 | Package local same-origin photos for the brand, landing hero, and every catalog item; render them with descriptive layout and empty alt text when adjacent item text already names the food. |
 
-The current demo has no order or idempotency-key cleanup policy. Those records remain in SQLite indefinitely, including after the source quote is cleaned up; plan database retention before using this implementation beyond a bounded demo.
+The current demo has no order or idempotency-key cleanup policy. Those records remain in SQLite for the lifetime of the demo database, including after the source quote is cleaned up. Decommissioning a demo must follow the operator's backup and record-handling requirements before the database is removed. Before business use, an owner must approve a retention period and an archive/purge design that preserves safe idempotency replay for the chosen period.
 
 ## Status boundary
 

@@ -22,6 +22,8 @@ This product evaluation defines measurable release gates for the checkout demo a
 | EVAL-REG-02 | Browser checkout remains operable and accessible in supported layouts. | `node scripts/run-e2e.mjs` | Playwright suite passes at its configured viewport sizes with its accessibility assertions. |
 | EVAL-REG-03 | Required acceptance criteria remain linked to named tests. | `node scripts/traceability.mjs --strict` | Every `Required` row is linked; documented deviations remain separate from coverage. |
 | EVAL-REG-04 | Server and client remain buildable as release artifacts. | Release .NET build and frontend production build. | Both builds pass with zero compiler warnings promoted as errors. |
+| EVAL-REG-05 | The documented Unix development entry point starts both services and releases them after the smoke. | `node scripts/dev-smoke.mjs` in the Ubuntu CI job. | The API health endpoint and Vite root both return success, and the smoke process group is stopped when the check ends. |
+| EVAL-REG-06 | The published Docker image works with production defaults and persistent order state. | `node scripts/docker-smoke.mjs` in the frontend CI job. | Packaged assets load, oversized requests receive 413, production forces simulated approval, and the same order is replayed after a container restart. |
 
 For payment, reservation, retry, and unknown-outcome regressions, release promotion requires three consecutive successful CI runs (`pass^3`). A single local run is recorded as `pass@1`, not as stability evidence.
 

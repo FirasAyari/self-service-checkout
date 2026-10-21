@@ -200,10 +200,30 @@ describe('checkout client acceptance criteria', () => {
   it('AC-C4 removes the final unit and lets the customer undo within five seconds', async () => {
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Add Garden sandwich' }))
+    vi.useFakeTimers()
     fireEvent.click(screen.getByRole('button', { name: 'Remove one: Garden sandwich' }))
-    expect(await screen.findByText(/Garden sandwich was removed/)).toBeTruthy()
+    expect(screen.getByText(/Garden sandwich was removed/)).toBeTruthy()
+    act(() => { vi.advanceTimersByTime(4_000) })
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy()
+    act(() => { vi.advanceTimersByTime(1_000) })
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
+  })
+
+  it('AC-C4 does not let undo exceed the per-item quantity limit after the cart changes', async () => {
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Add Garden sandwich' }))
+    for (let quantity = 1; quantity < 10; quantity += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Add one: Garden sandwich' }))
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove Garden sandwich' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add Garden sandwich' }))
+    for (let quantity = 1; quantity < 10; quantity += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Add one: Garden sandwich' }))
+    }
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
-    expect(await screen.findByRole('button', { name: 'Remove one: Garden sandwich' })).toBeTruthy()
+    expect(document.querySelector('.notice-banner')?.textContent).toBe('Up to 10 of each item.')
+    expect(screen.getByRole('button', { name: 'Remove one: Garden sandwich' })).toBeTruthy()
   })
 
   it('AC-C6 restores only item IDs and quantities from session storage', async () => {

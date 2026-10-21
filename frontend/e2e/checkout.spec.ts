@@ -457,9 +457,13 @@ test('AC-M3 automatic menu retry waits 2, 4, 8, then caps each later wait at 15 
   await expect(page.getByRole('alert').getByText('Menu temporarily unavailable.')).toBeVisible()
   await expect(page.getByRole('alert')).toHaveCount(1)
   expect(api.menuCalls).toBe(1)
-  for (const [delay, expectedCalls] of [[1_999, 1], [1, 2], [4_000, 3], [8_000, 4], [14_999, 4], [1, 5], [15_000, 6]] as const) {
-    await page.clock.fastForward(delay)
-    await expect.poll(() => api.menuCalls).toBe(expectedCalls)
+  for (const [delay, expectedCalls, expectedStatus] of [[2_000, 1, 503], [4_000, 2, 503], [8_000, 3, 503], [15_000, 4, 503], [15_000, 5, 200]] as const) {
+    await page.clock.fastForward(delay - 100)
+    expect(api.menuCalls).toBe(expectedCalls)
+    const retryResponse = page.waitForResponse((response) => response.url().endsWith('/api/menu'))
+    await page.clock.fastForward(100)
+    expect((await retryResponse).status()).toBe(expectedStatus)
+    expect(api.menuCalls).toBe(expectedCalls + 1)
   }
   await expect(page.getByRole('button', { name: 'Add Garden sandwich' })).toBeVisible()
 })

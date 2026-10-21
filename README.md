@@ -62,7 +62,7 @@ node scripts/traceability.mjs --strict
 
 If you have GNU Make, `make setup` runs the same .NET tool restore, solution restore, and frontend dependency installation steps. GNU Make is optional and is not required for local setup or verification.
 
-On Unix with GNU Make, the short path after cloning is `make setup`, then `make dev`; open `http://127.0.0.1:5173`. Run `make check` for the build, tests, lint, architecture checks, and strict acceptance trace.
+On Unix with GNU Make, the short path after cloning is `make setup`, then `make dev`; open `http://127.0.0.1:5173`. Run `node scripts/dev-smoke.mjs` to verify that the Unix development entry point serves both the API and Vite client. Run `make check` for the build, tests, lint, architecture checks, and strict acceptance trace.
 
 ## Run with Docker
 
@@ -82,7 +82,9 @@ To run the isolated container smoke check, which builds the image, checks the ov
 node scripts/docker-smoke.mjs
 ```
 
-The Docker build, readiness check, packaged assets, oversized-request rejection, simulated order, and restart persistence passed this smoke check on Windows on October 21, 2026.
+The Docker build, readiness check, packaged assets, oversized-request rejection, simulated order, and restart persistence passed this smoke check on Windows using port 18081 on October 21, 2026.
+
+The Docker smoke uses port 18080 by default; if another service already uses it, set `CHECKOUT_SMOKE_PORT` to a free port. The CI workflow includes both the Unix development smoke and Docker smoke. The smoke checks require a working .NET/Node toolchain and Docker respectively.
 
 ## Build and verification
 
@@ -114,7 +116,7 @@ Catalog changes, demo reset, and server-side mock/chaos overrides are available 
 - `backend/src/SelfServiceCheckout/SelfServiceCheckout.Infrastructure.Sqlite` implements those ports, database transactions, migrations, and durable mock payment outcomes.
 - `backend/src/SelfServiceCheckout/SelfServiceCheckout.Contracts` contains versioned HTTP DTOs. Only the API host maps these to application models; the browser validates responses at the network boundary.
 - `backend/src/SelfServiceCheckout/SelfServiceCheckout` contains the ASP.NET Core composition root, HTTP endpoints, contract mapping, HTTP error mapping, and hosted reconciliation loop. Endpoints do not query EF entities directly.
-- `frontend/src/checkout` separates reducer/session state, presentation helpers, checkout screens, and payment UI; `App.tsx` coordinates browser effects and user actions.
+- `frontend/src/checkout` separates reducer/session state, presentation helpers, checkout screens, cart actions, kiosk session behavior, and payment UI; `App.tsx` composes those flows.
 - `scripts/architecture-boundaries.test.mjs` guards project references and prevents framework/storage references from entering Domain or Application and persistence references from leaking into the HTTP host. `backend/tests` and `frontend` contain the behavior suites.
 
 ```mermaid

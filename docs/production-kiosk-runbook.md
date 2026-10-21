@@ -33,11 +33,12 @@ Replace the host name, kiosk ID, time zone, and proxy address with values for th
 ## Release procedure
 
 1. Run `make check`, `make e2e`, `make docker-smoke`, and `make trace` against the release candidate. The Production browser check starts the ASP.NET app in Production against a temporary SQLite database, verifies the response CSP and packaged brand/menu photos, and completes a simulated order with no customer payment fields. The Docker smoke builds and starts the container, verifies its packaged photos and disabled admin routes, completes a simulated order, restarts the container, and verifies the same order replays from its persistent volume. Confirm the API contract snapshot is current and acceptance-criteria traceability passes.
-2. Build/publish from the reviewed source and retain the prior application artifact for rollback. Do not deploy a Development build.
+2. Build/publish from the reviewed source and retain the prior application artifact for rollback. Do not deploy a Development build. Confirm that the release's database migrations support the intended rollback; never start an older binary against a newer schema unless compatibility is documented and verified.
 3. Stop the service before replacing the application files. Make a SQLite-consistent backup before starting a version that applies migrations automatically during startup.
 4. Start the service, then require `GET /health/live` and `GET /health/ready` to return `200`. Readiness checks the checkout database. Check that the browser loads from the same origin and that its API requests succeed.
 5. Run one staff-supervised demo order, verify the receipt says the result is simulated, and confirm a fresh order starts without previous customer data.
 6. Record the application version, database backup identifier, kiosk identifier, proxy/TLS check, test order reference, operator, and outcome in the deployment record.
+7. Name the application maintainer, on-site operator, and backup owner, with a reachable escalation contact for unresolved orders. Do not begin a kiosk trial without named coverage.
 
 ## Backup and recovery
 
@@ -51,7 +52,13 @@ Alternatively, stop the service cleanly before copying the database file. Keep b
 
 At least once before any kiosk trial, restore a recent backup to a clean host, start the same application release against it, confirm readiness, inspect orders and inventory, and verify pending payment attempts remain pending until a ledger result exists. A backup that has not been restored is not a proven recovery plan.
 
-For an outage, stop accepting new orders, retain the database and logs, and do not clear pending attempts or reserved stock based only on a missing payment ledger result. Restore only from a verified backup with an operator recording which version and backup were used. Start the service and confirm readiness before returning the kiosk to the demo.
+For an outage, stop accepting new orders and preserve the database and logs. Do not clear pending attempts or reserved stock based only on a missing payment ledger result. A backup restore discards every database change made after that backup; before restoring, preserve the current database and reconcile or record all post-backup orders with the named operator. Restore only from a verified backup, using an application version compatible with its schema, and record which version and backup were used. Start the service and confirm readiness before returning the kiosk to the demo.
+
+For a release rollback, stop the service and preserve the current database before changing binaries. Use the previous artifact only when its compatibility with the current schema has been verified. If schema compatibility is unknown or a restore would lose orders created after the backup, keep the current database and deploy a forward fix; do not restore an older database just to make the previous binary start.
+
+## Demo database retention and decommissioning
+
+The bounded demo retains order and idempotency records for the lifetime of its SQLite database. It does not automatically purge these records because a replay may depend on them. Before removing a demo database, follow the operator's approved backup and record-handling requirements and record who authorized decommissioning. A real business deployment needs an owner-approved retention period and an archive/purge design that preserves replay safety for that period; this demo does not supply that policy.
 
 ## Pending simulated order
 
