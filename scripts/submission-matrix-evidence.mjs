@@ -47,11 +47,11 @@ function isTestCitation(label) {
 }
 
 function candidatesFor(rowId, rowText) {
-  const direct = declarations.filter((declaration) => declaration.ids.has(rowId))
-  if (direct.length > 0) return direct
-
-  const relatedAcceptanceIds = new Set(rowText.match(/\bAC-[A-Z0-9]+\b/g) ?? [])
-  return declarations.filter((declaration) => [...relatedAcceptanceIds].some((id) => declaration.ids.has(id)))
+  const evidenceIds = new Set([
+    rowId,
+    ...(rowText.match(/\bAC-[A-Z0-9]+\b/g) ?? []),
+  ])
+  return declarations.filter((declaration) => [...evidenceIds].some((id) => declaration.ids.has(id)))
 }
 
 function testCitationsIn(row) {
@@ -89,6 +89,10 @@ for (let index = 0; index < lines.length; index++) {
   const isDeviated = /\|\s*Deviated:\s*ADR-\d{4}/i.test(row)
   const expected = isDeviated ? [] : candidatesFor(rowId, row)
   const hasMetStatus = /\|\s*(?:MET|Required)\s*\|/i.test(row)
+  if (/;\s{2,}(?:checks?|covers?|verifies?|confirms?|clears?|exercises?)\b/i.test(row) ||
+      /\b(?:checks?|covers?|verifies?)\s+(?:run\s+)?at\s*;/i.test(row)) {
+    errors.push(`Line ${index + 1} (${rowId}) has an empty or dangling test-evidence note.`)
+  }
   if (expected.length === 0 && hasMetStatus && !isDeviated) {
     errors.push(`Line ${index + 1} (${rowId}) has no named test evidence for its ID or linked acceptance criteria.`)
     continue
