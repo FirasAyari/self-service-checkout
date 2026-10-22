@@ -106,7 +106,7 @@ The Docker build, readiness check, packaged assets, oversized-request rejection,
 
 The Docker smoke uses port 18080 by default; if another service already uses it, set `CHECKOUT_SMOKE_PORT` to a free port. The CI workflow includes both the Unix development smoke and Docker smoke. The smoke checks require a working .NET/Node toolchain and Docker respectively.
 
-Latest application-code verification: GitHub Actions [run #37](https://github.com/FirasAyari/self-service-checkout/actions/runs/39810767310) passed on `ad3c3b5`, including backend/frontend checks, Unix development startup, and Docker smoke. Docker was unavailable in the latest local Windows environment, so the current container verification is from hosted CI.
+Current application-code verification (`0efaad1`, 2026-10-22): the local product runner passed Domain 19/19, API 49/49, frontend 45/45, delivery 8/8, and architecture boundary checks. Frontend lint and production build passed; the browser suite passed 36/36 checkout journeys and 3/3 Production-host checks; strict traceability reported 50 criteria, with 48 required criteria covered by named tests and AC-Y1/AC-Y2 documented as deviations. GitHub Actions [run #39](https://github.com/FirasAyari/self-service-checkout/actions/runs/39815687739) was still in progress at the last check: the frontend job had passed, while backend and browser jobs had not completed. The prior hosted run [#37](https://github.com/FirasAyari/self-service-checkout/actions/runs/39810767310) passed on `ad3c3b5`, including Unix development startup and Docker smoke. Docker is unavailable in the current local Windows environment.
 
 ## Build and verification
 
