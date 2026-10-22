@@ -137,6 +137,7 @@ export function ProcessingScreen({ order, busy, recovering, error, language, cop
   return <section className="status-screen" aria-labelledby="processing-title" aria-live="polite">
     <div className="status-orbit" aria-hidden="true"><span /><i /><b /></div><span className="eyebrow"><span className="eyebrow-line" /> {copy.stepCheckout}</span>
     <h1 id="processing-title" tabIndex={-1}>{pending ? copy.confirming : copy.checking}</h1><p className="status-message">{pending ? copy.pending : orderMessage}</p>
+    {pending && order && <p className="reference-note status-reference">{copy.reference} <strong>{order.publicReference.toUpperCase()}</strong></p>}
     {pending && <p className="polling-note" role="status">{language === 'pt-BR' ? 'Verificando automaticamente a cada 5 segundos…' : 'Checking automatically every 5 seconds…'}</p>}
     {error && <div className="error-banner status-error" role="status">{error}</div>}
     <div className="status-actions"><button className="primary-button" onClick={onCheck} disabled={busy}>{recovering ? copy.checkingAttempt : copy.checkStatus}</button>
