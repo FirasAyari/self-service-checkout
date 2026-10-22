@@ -482,6 +482,8 @@ public sealed partial class CheckoutApiTests
         var busy = await Assert.ThrowsAsync<CheckoutException>(() =>
             settlement.SettleAttemptAsync(attemptId, CancellationToken.None));
         Assert.Equal("DATABASE_BUSY", busy.Code);
+        await lockedCounters.DisposeAsync();
+
         await using (var db = await factory.CreateDbContextAsync())
         {
             var order = await db.Orders.SingleAsync(item => item.IdempotencyKey == idempotencyKey);
@@ -489,7 +491,6 @@ public sealed partial class CheckoutApiTests
             Assert.Null(order.PickupNumber);
         }
 
-        await lockedCounters.DisposeAsync();
         await settlement.SettleAttemptAsync(attemptId, CancellationToken.None);
 
         await using var settledDb = await factory.CreateDbContextAsync();
