@@ -13,10 +13,12 @@ From the repository root, restore the .NET tools and solution, install the brows
 ```sh
 node scripts/dotnet.mjs tool restore
 node scripts/dotnet.mjs restore backend/SelfServiceCheckout.slnx
-npm ci --prefix frontend
+npm ci --no-audit --prefix frontend
 node scripts/dotnet.mjs build backend/SelfServiceCheckout.slnx --configuration Release
 npm run build --prefix frontend
 ```
+
+Dependency auditing is a separate explicit check below; installation skips npm's duplicate implicit audit request.
 
 Start the API and React development server together:
 

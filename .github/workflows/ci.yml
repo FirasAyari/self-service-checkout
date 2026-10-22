@@ -23,7 +23,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        run: npm ci --prefix frontend
+        run: npm ci --no-audit --prefix frontend
 
       - name: Build frontend for API integration tests
         run: npm run build --prefix frontend
@@ -60,7 +60,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        run: npm ci --prefix frontend
+        run: npm ci --no-audit --prefix frontend
 
       - name: Audit npm packages
         run: npm audit --prefix frontend --audit-level=low
@@ -109,7 +109,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        run: npm ci --prefix frontend
+        run: npm ci --no-audit --prefix frontend
 
       - name: Verify Unix development entry point
         run: node scripts/dev-smoke.mjs

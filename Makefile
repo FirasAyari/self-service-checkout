@@ -6,7 +6,7 @@ DEMO_API_URL ?= http://127.0.0.1:5080
 setup:
 	node scripts/dotnet.mjs tool restore
 	node scripts/dotnet.mjs restore $(SOLUTION)
-	npm --prefix frontend ci
+	npm --prefix frontend ci --no-audit
 
 dev:
 	npm --prefix frontend run dev
