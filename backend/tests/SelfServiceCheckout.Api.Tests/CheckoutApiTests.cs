@@ -278,7 +278,7 @@ public sealed partial class CheckoutApiTests
         Assert.Equal(1, settled.PickupNumber);
     }
 
-    [Fact(DisplayName = "EVAL-PROD-02 AC-D5: production fixes the demo outcome and exposes no demo controls")]
+    [Fact(DisplayName = "SC-G3 EVAL-PROD-02 AC-D5: production hides demo administration and fixes the simulated outcome")]
     public async Task ProductionMode_KeepsPaymentSimulationAndHidesDemoAdministration()
     {
         using var database = new TemporaryCheckoutDatabase();

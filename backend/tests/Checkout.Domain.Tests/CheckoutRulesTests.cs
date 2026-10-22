@@ -35,7 +35,7 @@ public sealed class CheckoutRulesTests
         Assert.Equal("CART_LINE", result.ErrorCode);
     }
 
-    [Fact(DisplayName = "AC-M6: cart normalization preserves one consistent option set per item")]
+    [Fact(DisplayName = "AC-M6 SC-B8: cart normalization merges repeated item lines before limits")]
     public void Normalize_MergesLinesWithMatchingOptionsAndRejectsMixedOptions()
     {
         CartLine?[] matchingOptions =
@@ -59,7 +59,7 @@ public sealed class CheckoutRulesTests
         Assert.Equal("CART_OPTIONS", mixed.ErrorCode);
     }
 
-    [Theory]
+    [Theory(DisplayName = "BR-M5: inclusive tax is informational and rounds half-up")]
     [InlineData(null)]
     [InlineData(0)]
     [InlineData(11)]

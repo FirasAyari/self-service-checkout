@@ -26,7 +26,7 @@ namespace SelfServiceCheckout.Api.Tests;
 
 public sealed partial class CheckoutApiTests
 {
-    [Fact(DisplayName = "AC-O8: after 30 seconds, no ledger result remains pending and keeps reserved stock")]
+    [Fact(DisplayName = "AC-O8 SC-D4: after 30 seconds, no ledger result remains pending and keeps reserved stock")]
     public async Task StillUnknown_KeepsOrderPendingAndStockReservedAfterStatusAndReconciliation()
     {
         using var database = new TemporaryCheckoutDatabase();

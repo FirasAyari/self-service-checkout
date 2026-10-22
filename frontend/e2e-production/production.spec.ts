@@ -78,3 +78,13 @@ test('AC-D5 AC-D7 production server forces simulated approval, ships strict CSP,
   await expect(page.locator('.pickup-card strong')).toHaveText('1')
   await expect(page.locator('.receipt-card li')).toContainText('Turkey melt')
 })
+
+test('SC-G5 production host rejects oversized requests before JSON processing', async ({ page }) => {
+  await page.goto('/')
+  const response = await page.request.post(new URL('/api/quotes', page.url()).href, {
+    data: 'x'.repeat(16_385),
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+  expect(response.status()).toBe(413)
+})

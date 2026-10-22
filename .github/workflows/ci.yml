@@ -81,6 +81,7 @@ jobs:
         run: |
           node --test scripts/delivery-criteria.test.mjs
           node scripts/architecture-boundaries.test.mjs
+          node scripts/submission-matrix-evidence.mjs
 
       - name: Check acceptance-criteria traceability
         run: node scripts/traceability.mjs --strict

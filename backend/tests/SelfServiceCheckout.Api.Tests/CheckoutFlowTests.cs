@@ -73,7 +73,7 @@ public sealed partial class CheckoutApiTests
         Assert.Contains("/assets/index-", html, StringComparison.Ordinal);
     }
 
-    [Fact(DisplayName = "AC-D4: OpenAPI matches the committed contract snapshot")]
+    [Fact(DisplayName = "AC-D4 BR-X6: OpenAPI matches the snapshot and exposes no payment-token field")]
     public async Task OpenApiDocument_MatchesCommittedContractSnapshot()
     {
         using var database = new TemporaryCheckoutDatabase();
@@ -102,9 +102,10 @@ public sealed partial class CheckoutApiTests
 
         var expected = JsonNode.Parse(await File.ReadAllTextAsync(snapshotPath));
         Assert.True(JsonNode.DeepEquals(expected, document), "The committed OpenAPI contract is out of date.");
+        Assert.DoesNotContain("paymentToken", snapshot, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [Fact(DisplayName = "BR-P5: order totals use integer sums while tax is informational")]
     public async Task CreateQuote_ReturnsServerPricedSnapshotAndInclusiveTax()
     {
         using var database = new TemporaryCheckoutDatabase();

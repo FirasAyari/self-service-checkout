@@ -72,6 +72,7 @@ chaos-clear:
 
 check:
 	node scripts/generate-api-types.mjs --check
+	node scripts/submission-matrix-evidence.mjs
 	npm --prefix frontend run typecheck
 	node scripts/run-lint.mjs
 	node scripts/dotnet.mjs build $(SOLUTION) --configuration Release
