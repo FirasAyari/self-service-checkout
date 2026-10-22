@@ -331,6 +331,37 @@ test('SC-D8 a request lost before reaching the server stays recoverable on the s
   expect(api.paymentAttempts).toBe(1)
 })
 
+test('AC-D3 SC-D11 AC-O8 SC-D14 a pending attempt can resume after reservation using only the same key', async ({ page }) => {
+  const api = await mockCheckoutApi(page)
+  const submittedKeys: string[] = []
+  let interruptFirstSubmission = true
+  await page.route('**/api/orders', async (route) => {
+    const body = route.request().postDataJSON() as { idempotencyKey: string }
+    submittedKeys.push(body.idempotencyKey)
+    if (interruptFirstSubmission) {
+      interruptFirstSubmission = false
+      await route.fulfill({ status: 503, json: { title: 'The checkout was interrupted after reserving this order.', code: 'SIMULATED_CRASH_AFTER_RESERVATION' } })
+      return
+    }
+    await route.fallback()
+  })
+  await page.route('**/api/orders/status', async (route) => {
+    await route.fulfill({ json: makeOrder('PENDING_PAYMENT') })
+  })
+
+  await addOneAndReview(page)
+  await continueToOrder(page)
+  await payDemoOrder(page)
+  await expect(page.getByRole('heading', { name: 'Confirming your order.' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Retry this same order' })).toBeVisible()
+  await page.getByRole('button', { name: 'Retry this same order' }).click()
+  await expect(page.getByRole('heading', { name: 'That’s a good choice.' })).toBeVisible()
+
+  expect(submittedKeys).toHaveLength(2)
+  expect(submittedKeys[0]).toBe(submittedKeys[1])
+  expect(api.paymentAttempts).toBe(1)
+})
+
 test('SC-E7 malformed successful JSON reports a recoverable error and preserves the same attempt key', async ({ page }) => {
   const api = await mockCheckoutApi(page)
   let attemptKey = ''

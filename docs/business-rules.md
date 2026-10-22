@@ -45,7 +45,7 @@ This is a compact, ID-preserving index of the rules from the latest implementati
 | ID | Rule |
 | --- | --- |
 | BR-O1 | Each submit uses an idempotency key; a replay with the same request returns the same result, while key reuse for a different request is rejected. |
-| BR-O2 | Keep the same key after timeout or unknown result. Generate a new attempt only after cart/consent changes or a definite decline. |
+| BR-O2 | Keep the same key after timeout or unknown result. A retry resumes the existing simulated attempt; it cannot create a second order. Generate a new attempt only after cart/consent changes or a definite decline. |
 | BR-O3 | At most one order is created per idempotency key, including concurrent and double-tapped requests. |
 | BR-O4 | Orders move forward from pending to paid or failed; paid is terminal. |
 | BR-O5 | Allocate pickup numbers only when paid, per business day and configured business time zone. |

@@ -52,6 +52,13 @@ public sealed partial class CheckoutApiTests
         Assert.Equal("PENDING_PAYMENT", reconciledBody?.Status);
         Assert.Contains("Do not pay again", statusBody?.Message, StringComparison.Ordinal);
         Assert.Equal(11, await GetStockAsync(host, "turkey-melt"));
+
+        var retried = await PlaceOrderAsync(host.Client, quote.QuoteId, key, MockPaymentScenario.StillUnknown);
+        using var retryResponse = retried.Response;
+        Assert.Equal(HttpStatusCode.Accepted, retryResponse.StatusCode);
+        Assert.Equal("PENDING_PAYMENT", retried.Order?.Status);
+        Assert.Equal(11, await GetStockAsync(host, "turkey-melt"));
+        Assert.Equal(0, await CountLedgerEntriesAsync(host));
     }
 
     [Fact(DisplayName = "AC-O6 AC-O8: durable approval is reconciled after API restart")]

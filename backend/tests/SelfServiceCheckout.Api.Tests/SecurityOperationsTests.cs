@@ -230,8 +230,8 @@ public sealed partial class CheckoutApiTests
         Assert.Equal(2, await CountLedgerEntriesAsync(host));
     }
 
-    [Fact(DisplayName = "AC-D3 AC-O8 SC-D11: crash after reservation remains unknown and keeps stock reserved")]
-    public async Task DemoChaos_CrashAfterReservationLeavesPendingOrderWithoutLedgerResult()
+    [Fact(DisplayName = "AC-D3 AC-O8 SC-D11: same-attempt retry resumes after reservation before gateway")]
+    public async Task DemoChaos_CrashAfterReservationSameAttemptRetryRecordsOutcomeAndSettlesOnce()
     {
         using var database = new TemporaryCheckoutDatabase();
         using var host = database.StartHost(demoModeEnabled: true, adminToken: TestAdminToken);
@@ -252,22 +252,26 @@ public sealed partial class CheckoutApiTests
         Assert.Equal(11, await GetStockAsync(host, "turkey-melt"));
         Assert.Equal(0, await CountLedgerEntriesAsync(host));
 
+        using var pendingStatusResponse = await host.Client.PostAsJsonAsync(
+            "/api/orders/status",
+            new OrderStatusRequest(idempotencyKey),
+            JsonOptions);
+        var pendingStatus = await pendingStatusResponse.Content.ReadFromJsonAsync<OrderStatusResponse>(JsonOptions);
+        Assert.Equal(HttpStatusCode.OK, pendingStatusResponse.StatusCode);
+        Assert.Equal("PENDING_PAYMENT", pendingStatus?.Status);
+
         using var replayResponse = await host.Client.PostAsJsonAsync(
             "/api/orders",
             new PlaceOrderRequest(quote.QuoteId, idempotencyKey, MockPaymentScenario.Approve),
             JsonOptions);
         var replay = await replayResponse.Content.ReadFromJsonAsync<PlaceOrderResponse>(JsonOptions);
-        await using (var scope = host.Services.CreateAsyncScope())
-        {
-            var checkout = scope.ServiceProvider.GetRequiredService<IPaymentReconciliationService>();
-            await checkout.ReconcilePendingAsync(CancellationToken.None);
-        }
-
-        Assert.Equal(HttpStatusCode.Accepted, replayResponse.StatusCode);
-        Assert.Equal("PENDING_PAYMENT", replay?.Order.Status);
+        Assert.Equal(HttpStatusCode.OK, replayResponse.StatusCode);
+        Assert.Equal("PAID", replay?.Order.Status);
+        Assert.Equal(pendingStatus?.PublicReference, replay?.Order.PublicReference);
+        Assert.InRange(replay?.Order.PickupNumber ?? 0, 1, int.MaxValue);
         Assert.Equal(1, await CountOrdersAsync(host));
         Assert.Equal(11, await GetStockAsync(host, "turkey-melt"));
-        Assert.Equal(0, await CountLedgerEntriesAsync(host));
+        Assert.Equal(1, await CountLedgerEntriesAsync(host));
     }
 
     [Fact(DisplayName = "AC-G1 SC-G4: rejected sensitive input is absent from application logs")]
@@ -315,7 +319,8 @@ public sealed partial class CheckoutApiTests
     public async Task ConcurrentOrders_ReceiveUniqueContiguousPickupNumbersAndReserveExactStock()
     {
         using var database = new TemporaryCheckoutDatabase();
-        using var host = database.StartHost();
+        using var logs = new CapturingLoggerProvider();
+        using var host = database.StartHost(loggerProvider: logs);
         const int orderCount = 20;
         var quotes = new List<QuoteResponse>(orderCount);
         for (var index = 0; index < orderCount; index++)
@@ -332,7 +337,7 @@ public sealed partial class CheckoutApiTests
 
         Assert.All(results, result =>
         {
-            Assert.True(result.StatusCode == HttpStatusCode.Created, $"Expected Created, received {result.StatusCode}: {result.ErrorBody}");
+            Assert.True(result.StatusCode == HttpStatusCode.Created, $"Expected Created, received {result.StatusCode}: {result.ErrorBody}{Environment.NewLine}{logs.Messages}");
             Assert.Equal("PAID", result.Order?.Status);
         });
         var pickupNumbers = results

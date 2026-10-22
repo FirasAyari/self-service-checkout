@@ -53,10 +53,10 @@ Tags: **U** unit, **I** API/integration, **E** browser end-to-end.
 | SC-D8 | Connection drops before request reaches server | Explain connection failure and resolve against the same attempt when uncertain. | E |
 | SC-D9 | Five definite declines within ten minutes | Persist a 60-second kiosk lockout and return 429 with `Retry-After`. | I |
 | SC-D10 | Process stops after approval before order settles | Durable ledger lets reconciliation settle after restart. | I |
-| SC-D11 | Process stops after reservation before gateway call | Preserve unknown status until evidence supports a final result. | I |
+| SC-D11 | Process stops after reservation before gateway call | Keep the order pending and stock reserved; retrying the same key records one authoritative simulated result and settles the existing order once. | I/E |
 | SC-D12 | Reuse a payment token | **Not applicable; the demo creates no card tokens.** | — |
 | SC-D13 | Payment provider is slow | **No external provider exists in this demo.** | — |
-| SC-D14 | Customer tries to pay again while confirming | No second attempt control is available. | E |
+| SC-D14 | Customer tries to pay again while confirming | No new attempt can be created; the customer can retry only the same idempotent attempt. | E |
 
 ## E. Network and infrastructure
 

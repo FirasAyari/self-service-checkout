@@ -141,7 +141,7 @@ export function ProcessingScreen({ order, busy, recovering, error, language, cop
     {pending && <p className="polling-note" role="status">{language === 'pt-BR' ? 'Verificando automaticamente a cada 5 segundos…' : 'Checking automatically every 5 seconds…'}</p>}
     {error && <div className="error-banner status-error" role="status">{error}</div>}
     <div className="status-actions"><button className="primary-button" onClick={onCheck} disabled={busy}>{recovering ? copy.checkingAttempt : copy.checkStatus}</button>
-      {error && <button className="secondary-button" onClick={onRetry} disabled={busy}>{copy.retryAttempt}</button>}</div>
+      {pending && <button className="secondary-button" onClick={onRetry} disabled={busy}>{copy.retryAttempt}</button>}</div>
     <span className="attempt-note">{copy.sameAttempt}</span>
   </section>
 }

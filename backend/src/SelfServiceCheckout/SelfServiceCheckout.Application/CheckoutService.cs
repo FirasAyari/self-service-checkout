@@ -42,6 +42,7 @@ public sealed class CheckoutService(
 
         if (reservation.IsReplay)
         {
+            await RecordScenarioAsync(reservation.AttemptId, effectiveScenario, chaosConfiguration);
             await paymentSettlement.SettleAttemptAsync(reservation.AttemptId, CancellationToken.None);
         }
         else
@@ -54,12 +55,7 @@ public sealed class CheckoutService(
                     CheckoutFailureKind.Unavailable);
             }
 
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-            await paymentGateway.RecordScenarioAsync(
-                reservation.AttemptId,
-                effectiveScenario,
-                chaosConfiguration,
-                timeout.Token);
+            await RecordScenarioAsync(reservation.AttemptId, effectiveScenario, chaosConfiguration);
             if (effectiveScenario is PaymentScenario.Approve or PaymentScenario.Decline)
             {
                 await paymentSettlement.SettleAttemptAsync(reservation.AttemptId, CancellationToken.None);
@@ -79,6 +75,15 @@ public sealed class CheckoutService(
             reservation.OrderId,
             cancellationToken);
         return new PlaceOrderResult(order, reservation.IsReplay);
+    }
+
+    private async Task RecordScenarioAsync(
+        string attemptId,
+        PaymentScenario scenario,
+        DemoChaosConfiguration configuration)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        await paymentGateway.RecordScenarioAsync(attemptId, scenario, configuration, timeout.Token);
     }
 
     private static string ComputeRequestHash(string quoteId, PaymentScenario scenario)

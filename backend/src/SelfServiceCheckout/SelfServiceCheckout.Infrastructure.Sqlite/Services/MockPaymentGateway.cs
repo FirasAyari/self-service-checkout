@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using SelfServiceCheckout.Application;
 using SelfServiceCheckout.Data;
@@ -13,6 +14,8 @@ public sealed class MockPaymentGateway(
     TimeProvider timeProvider,
     DemoChaosState chaosState) : IMockPaymentGateway
 {
+    private const int MaximumDatabaseContentionRetries = 3;
+
     public DemoChaosConfiguration Configuration => chaosState.Configuration;
 
     public async Task RecordScenarioAsync(
@@ -32,6 +35,41 @@ public sealed class MockPaymentGateway(
         }
 
         var outcome = scenario == PaymentScenario.Decline ? "Declined" : "Approved";
+        for (var retry = 0; ; retry++)
+        {
+            try
+            {
+                await RecordOutcomeAsync(attemptId, outcome, cancellationToken);
+                return;
+            }
+            catch (Exception exception) when (IsSqliteBusy(exception))
+            {
+                if (retry >= MaximumDatabaseContentionRetries)
+                {
+                    throw new CheckoutException(
+                        "DATABASE_BUSY",
+                        "The simulated result is still being recorded. Retry this same order.",
+                        CheckoutFailureKind.Unavailable);
+                }
+
+                var backoff = TimeSpan.FromMilliseconds((25 * (1 << retry)) + Random.Shared.Next(0, 50));
+                await Task.Delay(backoff, cancellationToken);
+            }
+            catch (DbUpdateException)
+            {
+                await using var verification = await databaseFactory.CreateDbContextAsync(cancellationToken);
+                if (!await verification.PaymentLedger.AnyAsync(item => item.AttemptId == attemptId, cancellationToken))
+                {
+                    throw;
+                }
+
+                return;
+            }
+        }
+    }
+
+    private async Task RecordOutcomeAsync(string attemptId, string outcome, CancellationToken cancellationToken)
+    {
         await using var database = await databaseFactory.CreateDbContextAsync(cancellationToken);
         if (await database.PaymentLedger.AnyAsync(item => item.AttemptId == attemptId, cancellationToken))
         {
@@ -46,17 +84,19 @@ public sealed class MockPaymentGateway(
             RecordedAtUnixMs = timeProvider.GetUtcNow().ToUnixTimeMilliseconds()
         });
 
-        try
+        await database.SaveChangesAsync(cancellationToken);
+    }
+
+    private static bool IsSqliteBusy(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
         {
-            await database.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException)
-        {
-            // Another idempotent invocation may have committed the same provider result.
-            if (!await database.PaymentLedger.AnyAsync(item => item.AttemptId == attemptId, cancellationToken))
+            if (current is SqliteException sqliteException && sqliteException.SqliteErrorCode is 5 or 6)
             {
-                throw;
+                return true;
             }
         }
+
+        return false;
     }
 }
