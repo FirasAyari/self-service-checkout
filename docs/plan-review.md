@@ -4,7 +4,7 @@ Reviewed against the latest “Self-Service Checkout — Implementation Plan (1)
 
 ## Latest product-code verification
 
-Current recovery change verification (Windows worktree, 2026-10-22): `node scripts/run-tests.mjs` passed Domain 19/19, API 49/49, frontend 45/45, delivery 8/8, and architecture boundary checks. `node scripts/run-e2e.mjs` passed 37/37 checkout journeys and 3/3 Production-host checks. Frontend lint, production build, generated API type check, strict traceability (50 criteria: 48 required with named tests and two documented deviations), matrix evidence, and `git diff --check` passed. This working-tree snapshot has not yet been verified in a fresh clone or GitHub Actions. The preceding hosted CI evidence is GitHub Actions [run #41](https://github.com/FirasAyari/self-service-checkout/actions/runs/39817640345) on `12bab0e`; the separate public-clone verification below remains tied to `4904037`.
+Recovery revision `8705087` verification (2026-10-22): `node scripts/run-tests.mjs` passed Domain 19/19, API 49/49, frontend 45/45, delivery 8/8, and architecture boundary checks. `node scripts/run-e2e.mjs` passed 37/37 checkout journeys and 3/3 Production-host checks. Frontend lint, production build, generated API type check, strict traceability (50 criteria: 48 required with named tests and two documented deviations), matrix evidence, and `git diff --check` passed. GitHub Actions [run #45](https://github.com/FirasAyari/self-service-checkout/actions/runs/39826151726) passed all three jobs on this exact revision. The latest fresh public-clone walkthrough remains tied to `4904037`; this recovery revision has CI verification but has not yet had a new README walkthrough in a fresh clone.
 
 ## Review coverage
 
