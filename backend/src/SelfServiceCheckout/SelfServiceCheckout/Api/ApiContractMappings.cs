@@ -1,10 +1,55 @@
 using SelfServiceCheckout.Application;
 using SelfServiceCheckout.Contracts;
+using DemoChaosModeContract = SelfServiceCheckout.Contracts.DemoChaosMode;
 
 namespace SelfServiceCheckout.Api;
 
 internal static class ApiContractMappings
 {
+    public static SelfServiceCheckout.Application.DemoChaosMode ToApplicationChaosMode(DemoChaosModeContract mode) => mode switch
+    {
+        DemoChaosModeContract.Latency => SelfServiceCheckout.Application.DemoChaosMode.Latency,
+        DemoChaosModeContract.DropResponse => SelfServiceCheckout.Application.DemoChaosMode.DropResponse,
+        DemoChaosModeContract.CrashAfterReservation => SelfServiceCheckout.Application.DemoChaosMode.CrashAfterReservation,
+        _ => throw new ArgumentOutOfRangeException(nameof(mode))
+    };
+
+    public static DemoChaosModeContract? ToContractChaosMode(SelfServiceCheckout.Application.DemoChaosMode? mode) => mode switch
+    {
+        SelfServiceCheckout.Application.DemoChaosMode.Latency => DemoChaosModeContract.Latency,
+        SelfServiceCheckout.Application.DemoChaosMode.DropResponse => DemoChaosModeContract.DropResponse,
+        SelfServiceCheckout.Application.DemoChaosMode.CrashAfterReservation => DemoChaosModeContract.CrashAfterReservation,
+        null => null,
+        _ => throw new ArgumentOutOfRangeException(nameof(mode))
+    };
+
+    public static MockPaymentScenario? ToContractScenario(PaymentScenario? scenario) => scenario switch
+    {
+        PaymentScenario.Approve => MockPaymentScenario.Approve,
+        PaymentScenario.Decline => MockPaymentScenario.Decline,
+        PaymentScenario.UnknownAfterApproval => MockPaymentScenario.UnknownAfterApproval,
+        PaymentScenario.StillUnknown => MockPaymentScenario.StillUnknown,
+        null => null,
+        _ => throw new ArgumentOutOfRangeException(nameof(scenario))
+    };
+
+    public static DemoChaosStateDto ToResponse(DemoChaosConfiguration configuration) => new(
+        ToContractScenario(configuration.ScenarioOverride),
+        ToContractChaosMode(configuration.Mode),
+        configuration.Mode == SelfServiceCheckout.Application.DemoChaosMode.Latency
+            ? configuration.LatencyMilliseconds
+            : 0);
+
+    public static DemoCatalogItemDto ToResponse(CatalogItemRecord item) => new(
+        item.Id,
+        item.Category,
+        item.Name,
+        item.Description,
+        item.PriceCents,
+        item.Stock,
+        item.IsActive,
+        item.SortOrder);
+
     public static PaymentScenario ToApplicationScenario(MockPaymentScenario scenario) => scenario switch
     {
         MockPaymentScenario.Approve => PaymentScenario.Approve,

@@ -105,6 +105,7 @@ export function App() {
             <option value="en">{copy.english}</option><option value="pt-BR">{copy.portuguese}</option></select></label>
           <span className="service-pill"><span className="status-dot" aria-hidden="true" /><span className="service-label-full">{copy.service}</span><span className="service-label-short" aria-hidden="true">{copy.serviceShort}</span></span>
           <span className="order-step" aria-label={copy.step(step)}><span>{String(step).padStart(2, '0')}</span> / 03</span>
+          {import.meta.env.DEV && <a className="demo-admin-shortcut" href="/admin">Demo admin</a>}
         </div>
       </header>
 

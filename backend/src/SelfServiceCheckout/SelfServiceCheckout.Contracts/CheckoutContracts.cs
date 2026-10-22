@@ -84,3 +84,36 @@ public sealed record OrderStatusResponse(
 public sealed record ApiErrorResponse(string Code, string Message, string? TraceId = null);
 
 public sealed record PlaceOrderResponse(OrderStatusResponse Order);
+
+public sealed record DemoCatalogItemDto(
+    string Id,
+    string Category,
+    string Name,
+    string Description,
+    long PriceCents,
+    int? Stock,
+    bool IsActive,
+    int SortOrder);
+
+public sealed record DemoCatalogPatchRequest(
+    long? PriceCents,
+    int? Stock,
+    bool? IsActive,
+    bool ClearStock = false);
+
+public enum DemoChaosMode
+{
+    Latency,
+    DropResponse,
+    CrashAfterReservation
+}
+
+public sealed record DemoChaosRequest(
+    MockPaymentScenario? ScenarioOverride,
+    DemoChaosMode? Mode = null,
+    int LatencyMilliseconds = 3_000);
+
+public sealed record DemoChaosStateDto(
+    MockPaymentScenario? ScenarioOverride,
+    DemoChaosMode? Mode,
+    int LatencyMilliseconds);

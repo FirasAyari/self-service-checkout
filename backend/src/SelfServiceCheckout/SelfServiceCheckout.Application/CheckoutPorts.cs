@@ -103,6 +103,8 @@ public interface IMockPaymentGateway
 
 public interface IDemoAdministrationService
 {
+    Task<IReadOnlyList<CatalogItemRecord>> GetCatalogItemsAsync(CancellationToken cancellationToken);
+
     Task<bool> UpdateCatalogItemAsync(
         string itemId,
         long? priceCents,

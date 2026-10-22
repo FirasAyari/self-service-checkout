@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.Extensions.Options;
 using SelfServiceCheckout.Application;
 using SelfServiceCheckout.Contracts;
+using DemoChaosModeContract = SelfServiceCheckout.Contracts.DemoChaosMode;
 
 namespace SelfServiceCheckout.Api;
 
@@ -23,6 +24,20 @@ public static class DemoAdminEndpoints
 
                 return await next(context);
             });
+
+        group.MapGet("/items", async (
+                IDemoAdministrationService administration,
+                CancellationToken cancellationToken) =>
+                Results.Ok((await administration.GetCatalogItemsAsync(cancellationToken))
+                    .Select(ApiContractMappings.ToResponse)
+                    .ToArray()))
+            .WithName("DemoListMenuItems")
+            .Produces<DemoCatalogItemDto[]>(StatusCodes.Status200OK);
+
+        group.MapGet("/chaos", (DemoChaosState chaosState) =>
+                Results.Ok(ApiContractMappings.ToResponse(chaosState.Configuration)))
+            .WithName("DemoGetChaos")
+            .Produces<DemoChaosStateDto>(StatusCodes.Status200OK);
 
         group.MapPatch("/items/{itemId}", async (
                 string itemId,
@@ -75,7 +90,7 @@ public static class DemoAdminEndpoints
                     return Results.BadRequest(new { code = "INVALID_SCENARIO", message = "Choose a supported simulated payment outcome." });
                 }
 
-                if (request.Mode is { } mode && !Enum.IsDefined(mode))
+                if (request.Mode is { } mode && !Enum.IsDefined<DemoChaosModeContract>(mode))
                 {
                     return Results.BadRequest(new { code = "INVALID_CHAOS_MODE", message = "Choose a supported chaos mode." });
                 }
@@ -85,22 +100,18 @@ public static class DemoAdminEndpoints
                     return Results.BadRequest(new { code = "INVALID_LATENCY", message = "Latency must be between 0 and 7000 milliseconds." });
                 }
 
-                chaosState.SetConfiguration(new DemoChaosConfiguration(
+                var configuration = new DemoChaosConfiguration(
                     request.ScenarioOverride is { } selectedScenario
                         ? ApiContractMappings.ToApplicationScenario(selectedScenario)
                         : null,
-                    request.Mode,
-                    request.LatencyMilliseconds));
-                return Results.Ok(new
-                {
-                    scenarioOverride = request.ScenarioOverride?.ToString() ?? "client-selected",
-                    mode = request.Mode?.ToString() ?? "normal",
-                    latencyMilliseconds = request.Mode == DemoChaosMode.Latency ? request.LatencyMilliseconds : 0
-                });
+                    request.Mode is { } selectedMode ? ApiContractMappings.ToApplicationChaosMode(selectedMode) : null,
+                    request.LatencyMilliseconds);
+                chaosState.SetConfiguration(configuration);
+                return Results.Ok(ApiContractMappings.ToResponse(configuration));
             })
             .WithName("DemoSetChaos")
             .Accepts<DemoChaosRequest>("application/json")
-            .Produces(StatusCodes.Status200OK)
+            .Produces<DemoChaosStateDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
         return endpoints;
@@ -114,14 +125,3 @@ public static class DemoAdminEndpoints
         return providedBytes.Length == expectedBytes.Length && CryptographicOperations.FixedTimeEquals(providedBytes, expectedBytes);
     }
 }
-
-public sealed record DemoCatalogPatchRequest(
-    long? PriceCents,
-    int? Stock,
-    bool? IsActive,
-    bool ClearStock = false);
-
-public sealed record DemoChaosRequest(
-    MockPaymentScenario? ScenarioOverride,
-    DemoChaosMode? Mode = null,
-    int LatencyMilliseconds = 3_000);

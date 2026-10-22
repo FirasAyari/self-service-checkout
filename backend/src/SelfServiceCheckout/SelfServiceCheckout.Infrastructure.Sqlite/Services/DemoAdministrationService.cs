@@ -7,6 +7,26 @@ namespace SelfServiceCheckout.Infrastructure.Sqlite.Services;
 public sealed class DemoAdministrationService(
     IDbContextFactory<CheckoutDbContext> databaseFactory) : IDemoAdministrationService
 {
+    public async Task<IReadOnlyList<CatalogItemRecord>> GetCatalogItemsAsync(CancellationToken cancellationToken)
+    {
+        await using var database = await databaseFactory.CreateDbContextAsync(cancellationToken);
+        return await database.CatalogItems
+            .AsNoTracking()
+            .OrderBy(item => item.Category)
+            .ThenBy(item => item.SortOrder)
+            .ThenBy(item => item.Id)
+            .Select(item => new CatalogItemRecord(
+                item.Id,
+                item.Category,
+                item.Name,
+                item.Description,
+                item.PriceCents,
+                item.Stock,
+                item.IsActive,
+                item.SortOrder))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> UpdateCatalogItemAsync(
         string itemId,
         long? priceCents,

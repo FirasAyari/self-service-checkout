@@ -79,6 +79,29 @@ test('AC-D5 AC-D7 production server forces simulated approval, ships strict CSP,
   await expect(page.locator('.receipt-card li')).toContainText('Turkey melt')
 })
 
+test('AC-D8 Production build keeps Development admin controls unavailable', async ({ page }) => {
+  const adminRequests: string[] = []
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/admin')) adminRequests.push(request.url())
+  })
+
+  const response = await page.goto('/admin')
+
+  expect(response?.ok()).toBe(true)
+  await expect(page.getByRole('heading', { name: 'Admin controls are unavailable' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Back to checkout' })).toHaveAttribute('href', '/')
+  await expect(page.getByLabel('Development admin token')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Reset demo data' })).toHaveCount(0)
+  expect(adminRequests).toEqual([])
+
+  const appScriptUrls = await page.locator('script[src]').evaluateAll((scripts) =>
+    scripts.map((script) => new URL((script as HTMLScriptElement).src).href))
+  const productionScripts = await Promise.all(appScriptUrls.map(async (url) => (await page.request.get(url)).text()))
+  const productionBundle = productionScripts.join('\n')
+  expect(productionBundle).not.toContain('/api/admin')
+  expect(productionBundle).not.toContain('Reset demo data')
+})
+
 test('SC-G5 production host rejects oversized requests before JSON processing', async ({ page }) => {
   await page.goto('/')
   const response = await page.request.post(new URL('/api/quotes', page.url()).href, {

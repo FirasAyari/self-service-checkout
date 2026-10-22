@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api } from './api'
+import { demoAdminApi } from './demoAdminApi'
 
 const validOrder = (status: string) => ({
   publicReference: 'GT-20261021-AB12',
@@ -32,10 +33,10 @@ const validQuote = () => ({
   currency: 'USD',
 })
 
-function respondWith(body: unknown) {
+function respondWith(body: unknown, status = 200) {
   vi.stubGlobal('fetch', vi.fn(async () => ({
     ok: true,
-    status: 200,
+    status,
     headers: { get: () => null },
     json: async () => body,
   } as unknown as Response)))
@@ -87,5 +88,50 @@ describe('AC-D4 runtime API response validation', () => {
     respondWith({ ...validOrder('PAID'), ...override })
 
     await expect(api.status('a'.repeat(32))).rejects.toMatchObject({ name: 'ApiError', status: 200 })
+  })
+})
+
+
+describe('AC-D8 protected Development admin API validation', () => {
+  it('accepts a valid full catalog and rejects invalid item prices or stock', async () => {
+    const catalog = [{
+      id: 'garden-bowl', category: 'Bowls', name: 'Garden grain bowl', description: 'Seasonal greens.',
+      priceCents: 1095, stock: null, isActive: false, sortOrder: 1,
+    }]
+    respondWith(catalog)
+    await expect(demoAdminApi.items('x'.repeat(32))).resolves.toEqual(catalog)
+
+    respondWith([{ ...catalog[0], priceCents: -1 }])
+    await expect(demoAdminApi.items('x'.repeat(32))).rejects.toMatchObject({ name: 'ApiError', status: 200 })
+
+    respondWith([{ ...catalog[0], stock: -1 }])
+    await expect(demoAdminApi.items('x'.repeat(32))).rejects.toMatchObject({ name: 'ApiError', status: 200 })
+  })
+
+  it('validates the current chaos configuration at the network boundary', async () => {
+    const current = { scenarioOverride: 'StillUnknown', mode: 'Latency', latencyMilliseconds: 250 }
+    respondWith(current)
+    await expect(demoAdminApi.chaos('x'.repeat(32))).resolves.toEqual(current)
+
+    respondWith({ ...current, mode: 'UnrecognizedMode' })
+    await expect(demoAdminApi.chaos('x'.repeat(32))).rejects.toMatchObject({ name: 'ApiError', status: 200 })
+  })
+
+  it('sends the admin secret only in the request header and accepts a no-content edit', async () => {
+    const secret = 'local-development-token-without-browser-persistence'
+    let requestInit: RequestInit | undefined
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestInit = init
+      return { ok: true, status: 204, headers: { get: () => null }, json: async () => null } as unknown as Response
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(demoAdminApi.updateItem(secret, 'garden bowl', {
+      priceCents: 895, stock: 0, isActive: true, clearStock: false,
+    })).resolves.toBeNull()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/admin/items/garden%20bowl', expect.any(Object))
+    expect(requestInit?.headers).toMatchObject({ 'X-Admin-Token': secret })
+    expect(requestInit?.body).not.toContain(secret)
   })
 })

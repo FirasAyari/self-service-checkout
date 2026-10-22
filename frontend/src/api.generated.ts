@@ -4,6 +4,16 @@ export type CartLineRequest = {
   "quantity": number
   "optionIds"?: null | (string)[]
 }
+export type DemoCatalogItemDto = {
+  "id": string
+  "category": string
+  "name": string
+  "description": string
+  "priceCents": number
+  "stock": number | null
+  "isActive": boolean
+  "sortOrder": number
+}
 export type DemoCatalogPatchRequest = {
   "priceCents": number | null
   "stock": number | null
@@ -15,6 +25,11 @@ export type DemoChaosRequest = {
   "scenarioOverride": null | MockPaymentScenario
   "mode"?: null | DemoChaosMode
   "latencyMilliseconds"?: number
+}
+export type DemoChaosStateDto = {
+  "scenarioOverride": null | MockPaymentScenario
+  "mode": null | DemoChaosMode
+  "latencyMilliseconds": number
 }
 export type HealthEndpointResponse = {
   "status": string

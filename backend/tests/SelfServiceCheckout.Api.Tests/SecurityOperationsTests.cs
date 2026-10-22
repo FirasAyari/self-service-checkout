@@ -98,8 +98,14 @@ public sealed partial class CheckoutApiTests
         using var database = new TemporaryCheckoutDatabase();
         using var host = database.StartHost();
 
-        var response = await host.Client.PostAsync("/api/admin/reset", content: null);
+        using var items = await host.Client.GetAsync("/api/admin/items");
+        using var chaos = await host.Client.GetAsync("/api/admin/chaos");
+        using var patch = await host.Client.PatchAsJsonAsync("/api/admin/items/turkey-melt", new { priceCents = 900 });
+        using var response = await host.Client.PostAsync("/api/admin/reset", content: null);
 
+        Assert.Equal(HttpStatusCode.NotFound, items.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, chaos.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, patch.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
@@ -134,6 +140,52 @@ public sealed partial class CheckoutApiTests
         Assert.Equal(HttpStatusCode.NotFound, invalidTokenResponse.StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, validTokenResponse.StatusCode);
         Assert.Equal(900, await GetPriceAsync(host, "turkey-melt"));
+    }
+
+    [Fact(DisplayName = "AC-D8: demo administration reads require a token and expose current catalog and chaos state")]
+    public async Task DemoAdmin_ReadEndpointsRequireTokenAndReturnCurrentState()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost(demoModeEnabled: true, adminToken: TestAdminToken);
+        await SetActiveAsync(host, "turkey-melt", false);
+
+        using var unauthorizedItems = await host.Client.GetAsync("/api/admin/items");
+        using var unauthorizedChaos = await host.Client.GetAsync("/api/admin/chaos");
+        Assert.Equal(HttpStatusCode.NotFound, unauthorizedItems.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, unauthorizedChaos.StatusCode);
+
+        using var itemsRequest = new HttpRequestMessage(HttpMethod.Get, "/api/admin/items");
+        itemsRequest.Headers.Add("X-Admin-Token", TestAdminToken);
+        using var itemsResponse = await host.Client.SendAsync(itemsRequest);
+        var items = await itemsResponse.Content.ReadFromJsonAsync<DemoCatalogItemDto[]>(JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, itemsResponse.StatusCode);
+        Assert.NotNull(items);
+        Assert.Contains(items, item => item.Id == "turkey-melt" && !item.IsActive);
+
+        using var setChaosRequest = new HttpRequestMessage(HttpMethod.Post, "/api/admin/chaos")
+        {
+            Content = JsonContent.Create(new
+            {
+                scenarioOverride = "StillUnknown",
+                mode = "Latency",
+                latencyMilliseconds = 250
+            })
+        };
+        setChaosRequest.Headers.Add("X-Admin-Token", TestAdminToken);
+        using var setChaosResponse = await host.Client.SendAsync(setChaosRequest);
+        Assert.Equal(HttpStatusCode.OK, setChaosResponse.StatusCode);
+
+        using var chaosRequest = new HttpRequestMessage(HttpMethod.Get, "/api/admin/chaos");
+        chaosRequest.Headers.Add("X-Admin-Token", TestAdminToken);
+        using var chaosResponse = await host.Client.SendAsync(chaosRequest);
+        var chaos = await chaosResponse.Content.ReadFromJsonAsync<DemoChaosStateDto>(JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, chaosResponse.StatusCode);
+        Assert.NotNull(chaos);
+        Assert.Equal(MockPaymentScenario.StillUnknown, chaos.ScenarioOverride);
+        Assert.Equal(SelfServiceCheckout.Contracts.DemoChaosMode.Latency, chaos.Mode);
+        Assert.Equal(250, chaos.LatencyMilliseconds);
     }
 
     [Fact(DisplayName = "AC-D3: demo latency and lost-response chaos remain recoverable")]

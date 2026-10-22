@@ -119,7 +119,7 @@ function isOrderStatus(value: unknown): value is OrderStatus {
   return value.pickupNumber === null
 }
 
-async function request<T>(path: string, init: RequestInit, validate: (value: unknown) => value is T): Promise<T> {
+export async function request<T>(path: string, init: RequestInit, validate: (value: unknown) => value is T): Promise<T> {
   let response: Response
   try {
     response = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...init.headers } })
@@ -127,7 +127,7 @@ async function request<T>(path: string, init: RequestInit, validate: (value: unk
     throw new ApiError('The connection was interrupted. Check the same payment attempt before trying again.', 0)
   }
 
-  const body: unknown = await response.json().catch(() => null)
+  const body: unknown = response.status === 204 ? null : await response.json().catch(() => null)
   if (!response.ok) {
     const message = isRecord(body) && (typeof body.title === 'string' || typeof body.message === 'string')
       ? String(body.title ?? body.message)

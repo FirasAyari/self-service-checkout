@@ -126,7 +126,7 @@ The original plan card-entry criteria AC-Y1 and AC-Y2 are intentionally out of s
 
 ### Development-only demo controls
 
-Catalog changes, demo reset, and server-side mock/chaos overrides are available only when `DemoMode:Enabled=true` is set in Development and `DemoMode:AdminToken` contains at least 32 characters. Both settings are off/empty by default. See [demo-mode instructions](docs/demo-mode.md); never commit the token or expose these controls as a production admin surface.
+Open `http://127.0.0.1:5173/admin` while the Vite Development server is running to edit the demo catalog, configure simulated payment and failure behavior, or reset local demo data. The UI requires the admin token, keeps it in memory only, and asks for confirmation before reset. The API must run in Development with `DemoMode:Enabled=true` and `DemoMode:AdminToken` of at least 32 characters; both settings are off/empty by default. Follow [demo-mode instructions](docs/demo-mode.md) to enable it. Never commit the token or expose these controls as a production admin surface.
 
 ## Architecture
 
@@ -175,4 +175,4 @@ See the [single-kiosk deployment and operations runbook](docs/production-kiosk-r
 
 ## Review record
 
-See the [brief-to-repository crosswalk and evidence matrix](docs/submission-requirements-matrix.md), [business rules](docs/business-rules.md), [scenario catalog](docs/scenarios.md), and [plan review](docs/plan-review.md) for requirements, reviewed behavior, and deliberate scope changes. [Architecture decisions](docs/adr/README.md), [AI workflow](docs/ai-workflow.md), [rejected/deferred decisions](docs/rejected.md), and the [reconstructed timeline](docs/timeline.md) preserve context without claiming a prompt-by-prompt history. Review documents supplied with the assignment describe intended work; their delivery or publication instructions do not authorize external publication.
+See the [technical design](docs/TDD.md) for the system architecture, checkout flow, and decision rationale; the [brief-to-repository crosswalk and evidence matrix](docs/submission-requirements-matrix.md), [business rules](docs/business-rules.md), [scenario catalog](docs/scenarios.md), and [plan review](docs/plan-review.md) for requirements, reviewed behavior, and deliberate scope changes. [Architecture decisions](docs/adr/README.md), [AI workflow](docs/ai-workflow.md), [rejected/deferred decisions](docs/rejected.md), and the [reconstructed timeline](docs/timeline.md) preserve context without claiming a prompt-by-prompt history. Review documents supplied with the assignment describe intended work; their delivery or publication instructions do not authorize external publication.
