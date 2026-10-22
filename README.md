@@ -102,7 +102,7 @@ To run the isolated container smoke check, which builds the image, checks the ov
 node scripts/docker-smoke.mjs
 ```
 
-The Docker smoke last ran locally on October 21, 2026 using port 18081. Docker CLI is unavailable in the current verification environment, so I could not rerun it locally on the latest application revision. GitHub Actions [run #39833385951](https://github.com/FirasAyari/self-service-checkout/actions/runs/39833385951) passed the Docker build, readiness, asset, oversized-request, order-persistence, and restart checks on application revision `0021acf`.
+The Docker smoke last ran locally on October 21, 2026 using port 18081. Docker CLI is unavailable in the current verification environment, so I could not rerun it locally on the latest application revision. GitHub Actions [run #39835432832](https://github.com/FirasAyari/self-service-checkout/actions/runs/39835432832) passed the Docker build, readiness, asset, oversized-request, order-persistence, and restart checks on revision `c8fb58c`.
 
 The Docker smoke uses port 18080 by default; if another service already uses it, set `CHECKOUT_SMOKE_PORT` to a free port. The CI workflow includes both the Unix development smoke and Docker smoke. The smoke checks require a working .NET/Node toolchain and Docker respectively.
 
