@@ -120,6 +120,7 @@ async function expectNoSevereAxeViolations(page: Page) {
 test('AC-M6 / AC-R6 selected cold-brew options are quoted, confirmed, and included in the QR receipt', async ({ page }) => {
   page.on('pageerror', (error) => console.error(`Cold-brew page error: ${error.message}`))
   page.on('console', (message) => { if (message.type() === 'error') console.error(`Cold-brew console error: ${message.text()}`) })
+  await page.route('**/api/kiosk/help', (route) => route.fulfill({ json: { helpUrl: null } }))
   let quotedOptions: string[] = []
   const optionGroups = [
     { id: 'size', name: 'Size', isRequired: true, maximumSelections: 1, options: [{ id: 'small', name: 'Small', additionalPriceCents: 0 }, { id: 'large', name: 'Large', additionalPriceCents: 125 }] },
