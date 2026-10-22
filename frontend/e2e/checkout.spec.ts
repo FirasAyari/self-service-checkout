@@ -767,6 +767,32 @@ test('AC-K4 tablet portrait and landscape keep cart and checkout controls reacha
   }
 })
 
+test('AC-K4 / AC-K5 / SC-F8 tablet touch input completes a demo checkout', async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 768, height: 1024 },
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true,
+  })
+  try {
+    const page = await context.newPage()
+    const checkout = await mockCheckoutApi(page)
+    await page.goto('http://127.0.0.1:4173/')
+
+    await page.getByRole('button', { name: 'Add Garden sandwich' }).tap()
+    await expect(page.getByRole('button', { name: 'Remove one: Garden sandwich' })).toBeVisible()
+    await page.getByRole('button', { name: 'Review order' }).tap()
+    await expect(page.getByRole('heading', { name: 'Your order, your way.' })).toBeVisible()
+    await page.getByRole('button', { name: 'Continue to place order' }).tap()
+    await expect(page.getByRole('button', { name: /Place demo order/ })).toBeVisible()
+    await page.getByRole('button', { name: /Place demo order/ }).tap()
+    await expect(page.getByRole('heading', { name: 'Order receipt' })).toBeVisible()
+    expect(checkout.paymentAttempts).toBe(1)
+  } finally {
+    await context.close()
+  }
+})
+
 test('BR-K8 customer-facing copy switches through the shared language catalog', async ({ page }) => {
   await mockCheckoutApi(page)
   await page.goto('/')
