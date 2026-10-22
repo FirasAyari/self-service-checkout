@@ -1,5 +1,6 @@
 using System.Data;
 using Checkout.Domain;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using SelfServiceCheckout.Application;
@@ -18,6 +19,7 @@ public sealed class PaymentSettlementService(
     private const long DeclineWindowMilliseconds = 10 * 60 * 1_000;
     private const long PaymentLockoutMilliseconds = 60 * 1_000;
     private const int DeclinesBeforeLockout = 5;
+    private const int MaximumDatabaseContentionRetries = 3;
     private readonly CheckoutOptions _options = options.Value;
     private readonly TimeZoneInfo _businessTimeZone = TimeZoneInfo.FindSystemTimeZoneById(options.Value.BusinessTimeZone);
 
@@ -66,6 +68,31 @@ public sealed class PaymentSettlementService(
     }
 
     public async Task SettleAttemptAsync(string attemptId, CancellationToken cancellationToken)
+    {
+        for (var retry = 0; ; retry++)
+        {
+            try
+            {
+                await SettleAttemptCoreAsync(attemptId, cancellationToken);
+                return;
+            }
+            catch (Exception exception) when (IsSqliteBusy(exception))
+            {
+                if (retry >= MaximumDatabaseContentionRetries)
+                {
+                    throw new CheckoutException(
+                        "DATABASE_BUSY",
+                        "The order is still being confirmed. Check the same payment attempt again after database contention clears.",
+                        CheckoutFailureKind.Unavailable);
+                }
+
+                var backoff = TimeSpan.FromMilliseconds((25 * (1 << retry)) + Random.Shared.Next(0, 50));
+                await Task.Delay(backoff, cancellationToken);
+            }
+        }
+    }
+
+    private async Task SettleAttemptCoreAsync(string attemptId, CancellationToken cancellationToken)
     {
         await using var database = await databaseFactory.CreateDbContextAsync(cancellationToken);
         await using var transaction = await database.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
@@ -183,6 +210,19 @@ public sealed class PaymentSettlementService(
         order.UpdatedAtUnixMs = updatedAt;
         await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static bool IsSqliteBusy(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is SqliteException sqliteException && sqliteException.SqliteErrorCode is 5 or 6)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public async Task<OrderStatusSnapshot> LoadOrderStatusAsync(

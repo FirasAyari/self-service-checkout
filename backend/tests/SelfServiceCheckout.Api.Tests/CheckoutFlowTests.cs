@@ -427,6 +427,76 @@ public sealed partial class CheckoutApiTests
         Assert.Equal(12, await GetStockAsync(host, "turkey-melt"));
     }
 
+    [Fact(DisplayName = "SC-E4 AC-O6: settlement contention stays pending and can safely settle after the lock clears")]
+    public async Task Settlement_ReturnsRetryableBusyAndDoesNotAllocatePickupUntilRetrySucceeds()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("sparkling-water", 1));
+        const string idempotencyKey = "99999999999949999999999999999999";
+
+        var pending = await PlaceOrderAsync(host.Client, quote.QuoteId, idempotencyKey, MockPaymentScenario.StillUnknown);
+        Assert.Equal(HttpStatusCode.Accepted, pending.Response.StatusCode);
+        Assert.Equal("PENDING_PAYMENT", pending.Order?.Status);
+
+        var businessDate = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        await using var scope = host.Services.CreateAsyncScope();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CheckoutDbContext>>();
+        string attemptId;
+        await using (var db = await factory.CreateDbContextAsync())
+        {
+            var orderId = await db.Orders
+                .Where(order => order.IdempotencyKey == idempotencyKey)
+                .Select(order => order.Id)
+                .SingleAsync();
+            attemptId = await db.PaymentAttempts
+                .Where(attempt => attempt.OrderId == orderId)
+                .Select(attempt => attempt.Id)
+                .SingleAsync();
+            db.PaymentLedger.Add(new PaymentLedgerEntity
+            {
+                AttemptId = attemptId,
+                Outcome = "Approved",
+                TransactionReference = Guid.NewGuid().ToString("N"),
+                RecordedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            });
+            db.PickupCounters.Add(new PickupCounterEntity { BusinessDate = businessDate, NextNumber = 1 });
+            await db.SaveChangesAsync();
+        }
+
+        await using var blocker = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = database.DatabasePath,
+            Mode = SqliteOpenMode.ReadWrite,
+            Cache = SqliteCacheMode.Shared,
+            Pooling = false
+        }.ToString());
+        await blocker.OpenAsync();
+        await using var lockCommand = blocker.CreateCommand();
+        lockCommand.CommandText = "SELECT * FROM pickup_counters;";
+        await using var lockedCounters = await lockCommand.ExecuteReaderAsync();
+        await lockedCounters.ReadAsync();
+
+        var settlement = scope.ServiceProvider.GetRequiredService<IPaymentOutcomeSettlement>();
+        var busy = await Assert.ThrowsAsync<CheckoutException>(() =>
+            settlement.SettleAttemptAsync(attemptId, CancellationToken.None));
+        Assert.Equal("DATABASE_BUSY", busy.Code);
+        await using (var db = await factory.CreateDbContextAsync())
+        {
+            var order = await db.Orders.SingleAsync(item => item.IdempotencyKey == idempotencyKey);
+            Assert.Equal("PENDING_PAYMENT", order.Status);
+            Assert.Null(order.PickupNumber);
+        }
+
+        await lockedCounters.DisposeAsync();
+        await settlement.SettleAttemptAsync(attemptId, CancellationToken.None);
+
+        await using var settledDb = await factory.CreateDbContextAsync();
+        var settledOrder = await settledDb.Orders.SingleAsync(item => item.IdempotencyKey == idempotencyKey);
+        Assert.Equal("PAID", settledOrder.Status);
+        Assert.Equal(1, settledOrder.PickupNumber);
+    }
+
     [Fact(DisplayName = "SC-E5: database write failure rolls back order and stock changes")]
     public async Task PlaceOrder_RollsBackWhenStockWriteFails()
     {
