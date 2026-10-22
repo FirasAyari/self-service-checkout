@@ -3,7 +3,7 @@ import { isDemoOutcomeSelectionEnabled } from './demo-outcome-selection'
 import { messages, type Language } from './copy'
 import { PaymentScreen } from './checkout/PaymentScreen'
 import { ATTEMPT_STORAGE_KEY, CART_STORAGE_KEY, EMPTY_OPTION_IDS, PAYMENT_RETRY_STORAGE_KEY, createInitialState, readPaymentCooldownSeconds, reducer, type StoredAttempt } from './checkout/state'
-import { categoryName, formatMoney, localizedMenuText, selectedUnitPrice, withRequiredOptionDefaults } from './checkout/presentation'
+import { categoryName, formatMoney, localizedMenuItemName, selectedUnitPrice, withRequiredOptionDefaults } from './checkout/presentation'
 import { CompleteScreen, ErrorBoundary, MenuCard, ProcessingScreen, ReviewScreen } from './checkout/screens'
 import { useCatalogQuoteFlow } from './checkout/useCatalogQuoteFlow'
 import { useCartActions } from './checkout/useCartActions'
@@ -138,14 +138,14 @@ export function App() {
           onQuantity={(itemId, quantity) => cartActions.changeQuantity(itemId, quantity, quantity === 0)}
           onRefresh={() => void refreshQuote(copy.refreshed)} onAccept={() => dispatch({ type: 'accept-quote' })} onContinue={() => dispatch({ type: 'continue-payment' })} />}
 
-        {state.screen === 'pay' && state.quote && <PaymentScreen quote={state.quote} scenario={state.scenario} language={language} copy={copy}
+        {state.screen === 'pay' && state.quote && <PaymentScreen quote={state.quote} menuItems={allItems} scenario={state.scenario} language={language} copy={copy}
           paymentCooldownSeconds={paymentCooldownSeconds} allowOutcomeSelection={demoOutcomeSelectionEnabled} formatMoney={formatMoney} onBack={() => dispatch({ type: 'back-to-review' })}
           onScenario={(scenario) => dispatch({ type: 'scenario', scenario })} onSubmit={() => void submitPayment()} />}
 
         {state.screen === 'processing' && <ProcessingScreen order={state.order} busy={state.busy} recovering={state.recovering} error={state.error}
           language={language} copy={copy} onCheck={() => void checkStatus()} onRetry={() => void retrySameAttempt()} />}
 
-        {state.screen === 'complete' && state.order && <CompleteScreen order={state.order} quote={state.quote} language={language} copy={copy}
+        {state.screen === 'complete' && state.order && <CompleteScreen order={state.order} quote={state.quote} menuItems={allItems} language={language} copy={copy}
           onRetry={retryAfterDecline} onNewOrder={() => { dispatch({ type: 'new-order' }); setCategory('All') }} />}
       </main>
 
@@ -156,7 +156,7 @@ export function App() {
 
       <footer className="site-footer"><span>{copy.footerOne}</span><span>{copy.footerTwo}</span></footer>
 
-      {cartActions.undoItem && <div className="undo-toast" role="status" aria-live="polite"><span>{copy.undoRemoved(localizedMenuText(cartActions.undoItem.name, language))} {cartActions.undoSeconds}</span>
+      {cartActions.undoItem && <div className="undo-toast" role="status" aria-live="polite"><span>{copy.undoRemoved(localizedMenuItemName(cartActions.undoItem.itemId, cartActions.undoItem.name, language))} {cartActions.undoSeconds}</span>
         <button className="text-button" onClick={cartActions.restoreRemovedItem}>{copy.undo}</button></div>}
 
       {kioskSession.showIdlePrompt && <div className="modal-backdrop"><section ref={idleDialogRef} className="idle-dialog" role="alertdialog" aria-modal="true" aria-labelledby="idle-title" aria-describedby="idle-copy">

@@ -3,7 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import type { MenuItem, OrderLine, OrderStatus, Quote } from '../api'
 import type { Copy, Language } from '../copy'
 import type { Cart } from './state'
-import { categoryName, formatMoney, localizedMenuText, localizedOption, localizedOptionGroup, selectedUnitPrice, withRequiredOptionDefaults } from './presentation'
+import { categoryName, formatMoney, localizedConfiguredLineName, localizedMenuDescription, localizedMenuItemName, localizedOption, localizedOptionGroup, selectedUnitPrice, withRequiredOptionDefaults } from './presentation'
 
 const menuPhotoIds = new Set([
   'turkey-melt', 'garden-wrap', 'chicken-club', 'tomato-panini', 'grain-bowl', 'chicken-bowl',
@@ -35,7 +35,7 @@ export function MenuCard({ item, quantity, optionIds, index, language, copy, get
   const lowStock = available && item.stock !== null && item.stock > 0 && item.stock <= 5
   const disabledReason = getDisabledReason(selectedOptionIds)
   const plusDisabled = Boolean(disabledReason)
-  const itemName = localizedMenuText(item.name, language)
+  const itemName = localizedMenuItemName(item.id, item.name, language)
   const updateOption = (groupId: string, optionId: string, checked: boolean) => {
     const group = item.optionGroups.find((candidate) => candidate.id === groupId)
     if (!group) return
@@ -55,7 +55,7 @@ export function MenuCard({ item, quantity, optionIds, index, language, copy, get
   return <article className={`menu-card ${!available ? 'unavailable' : ''}`}>
     <div className="food-art" aria-hidden="true"><img src={imageSource} alt="" loading={index < 3 ? 'eager' : 'lazy'} decoding="async" /></div>
     <div className="menu-card-body"><div className="menu-card-title"><h3>{itemName}</h3><span className="price">{formatMoney(unitPriceCents, 'USD', language)}</span></div>
-      <p>{localizedMenuText(item.description, language)}</p>
+      <p>{localizedMenuDescription(item.id, item.description, language)}</p>
       {item.optionGroups.map((group) => <fieldset className="menu-options" key={group.id}><legend>{localizedOptionGroup(group.id, group.name, language)}{group.isRequired ? ' *' : ''}</legend>
         {group.isRequired ? <select aria-label={localizedOptionGroup(group.id, group.name, language)} value={selectedOptionIds.find((id) => group.options.some((option) => option.id === id)) ?? ''}
           onChange={(event) => updateOption(group.id, event.target.value, true)}>{group.options.map((option) => <option key={option.id} value={option.id}>{localizedOption(option.id, option.name, language)}{option.additionalPriceCents ? ` (+${formatMoney(option.additionalPriceCents, 'USD', language)})` : ''}</option>)}</select> :
@@ -86,11 +86,11 @@ export function ReviewScreen({ quote, cart, menuItems, language, copy, busy, err
   error: string | null; notice: string | null; stockIssue: boolean; changedItemIds: string[]; quoteNeedsConsent: boolean; paymentCooldownSeconds: number; onBack: () => void; onClear: () => void
   onQuantity: (itemId: string, quantity: number) => void; onRefresh: () => void; onAccept: () => void; onContinue: () => void
 }) {
-  const displayedLines = quote?.lines.map((line) => ({ itemId: line.itemId, name: localizedMenuText(line.name, language), quantity: line.quantity, unitPriceCents: line.unitPriceCents, lineTotalCents: line.lineTotalCents })) ??
+  const displayedLines = quote?.lines.map((line) => ({ itemId: line.itemId, name: line.name, optionIds: line.optionIds, quantity: line.quantity, unitPriceCents: line.unitPriceCents, lineTotalCents: line.lineTotalCents })) ??
     Object.entries(cart).map(([itemId, cartLine]) => {
       const item = menuItems.get(itemId)
       const unitPriceCents = selectedUnitPrice(item, cartLine.optionIds)
-      return { itemId, name: localizedMenuText(item?.name ?? (language === 'pt-BR' ? 'Item indisponível' : 'Unavailable item'), language), quantity: cartLine.quantity, unitPriceCents, lineTotalCents: unitPriceCents * cartLine.quantity }
+      return { itemId, name: item?.name ?? (language === 'pt-BR' ? 'Item indisponível' : 'Unavailable item'), optionIds: cartLine.optionIds, quantity: cartLine.quantity, unitPriceCents, lineTotalCents: unitPriceCents * cartLine.quantity }
     })
   return <section className="checkout-screen" aria-labelledby="review-title">
     <button className="back-link" onClick={onBack} disabled={busy}>{copy.reviewBack}</button>
@@ -101,14 +101,15 @@ export function ReviewScreen({ quote, cart, menuItems, language, copy, busy, err
     <div className="review-layout"><div className="review-card"><div className="review-card-head"><h2>{copy.picks}</h2><div className="review-card-actions"><button className="text-button" onClick={onBack} disabled={busy}>{copy.edit}</button><button className="text-button clear-order" onClick={onClear} disabled={busy}>{copy.clear}</button></div></div>
       {displayedLines.map((line) => {
         const item = menuItems.get(line.itemId)
+        const displayName = localizedConfiguredLineName(line.itemId, item?.name ?? line.name, line.optionIds, line.name, language)
         const available = item?.isAvailable === true && (item.stock === null || item.stock > 0)
         const overStock = !available || (item?.stock !== null && item?.stock !== undefined && line.quantity > item.stock)
         const itemChanged = changedItemIds.includes(line.itemId)
         return <div className={`review-line ${overStock ? 'review-line-warning' : itemChanged ? 'review-line-updated' : ''}`} key={line.itemId}>
-          <div className="review-item-summary"><span className="review-quantity">{line.quantity}</span><span className="review-name">{line.name}<small>{formatMoney(line.unitPriceCents, quote?.currency ?? 'USD', language)} {copy.each}</small></span>
+          <div className="review-item-summary"><span className="review-quantity">{line.quantity}</span><span className="review-name">{displayName}<small>{formatMoney(line.unitPriceCents, quote?.currency ?? 'USD', language)} {copy.each}</small></span>
             <strong>{formatMoney(line.lineTotalCents, quote?.currency ?? 'USD', language)}</strong></div>
-          <div className="review-item-actions">{line.quantity > 1 && <button className="text-button" onClick={() => onQuantity(line.itemId, line.quantity - 1)} aria-label={`${copy.reduce}: ${line.name}`} disabled={busy}>{copy.reduce}</button>}
-            <button className="text-button remove-line" onClick={() => onQuantity(line.itemId, 0)} aria-label={copy.removeItem(line.name)} disabled={busy}>{copy.remove}</button>
+          <div className="review-item-actions">{line.quantity > 1 && <button className="text-button" onClick={() => onQuantity(line.itemId, line.quantity - 1)} aria-label={`${copy.reduce}: ${displayName}`} disabled={busy}>{copy.reduce}</button>}
+            <button className="text-button remove-line" onClick={() => onQuantity(line.itemId, 0)} aria-label={copy.removeItem(displayName)} disabled={busy}>{copy.remove}</button>
             {overStock && item && item.stock !== null && item.stock > 0 && <button className="text-button" onClick={() => onQuantity(line.itemId, item.stock!)} disabled={busy}>{copy.reduceTo(item.stock)}</button>}
             {item?.stock !== null && item?.stock !== undefined && <small>{language === 'pt-BR' ? `Disponível: ${item.stock}` : `Available now: ${item.stock}`}</small>}
           </div>
@@ -144,7 +145,7 @@ export function ProcessingScreen({ order, busy, recovering, error, language, cop
   </section>
 }
 
-export function CompleteScreen({ order, quote, language, copy, onRetry, onNewOrder }: { order: OrderStatus; quote: Quote | null; language: Language; copy: Copy; onRetry: () => void; onNewOrder: () => void }) {
+export function CompleteScreen({ order, quote, menuItems, language, copy, onRetry, onNewOrder }: { order: OrderStatus; quote: Quote | null; menuItems: Map<string, MenuItem>; language: Language; copy: Copy; onRetry: () => void; onNewOrder: () => void }) {
   const [seconds, setSeconds] = useState(30)
   const paid = order.status === 'PAID'
   const orderMessage = paid ? copy.orderPaidMessage : copy.orderDeclinedMessage
@@ -165,7 +166,14 @@ export function CompleteScreen({ order, quote, language, copy, onRetry, onNewOrd
     {paid && order.pickupNumber !== null && <div className="pickup-card"><span>{copy.pickup}</span><strong>{order.pickupNumber}</strong><small>{copy.pickupHint}</small></div>}
     {paid && <>
       <p className="reference-note">{copy.reference} <strong>{order.publicReference.toUpperCase()}</strong></p>
-      {receiptLines.length > 0 && <div className="receipt-card" id="print-receipt"><h2>{copy.receipt}</h2><ul>{receiptLines.map((line) => <li key={line.itemId}><span>{line.quantity} × {localizedMenuText(line.name, language)}</span><strong>{formatMoney(line.lineTotalCents, currency, language)}</strong></li>)}</ul>
+      {receiptLines.length > 0 && <div className="receipt-card" id="print-receipt"><h2>{copy.receipt}</h2><ul>{receiptLines.map((line) => {
+        const quoteLine = quote?.lines.find((candidate) => candidate.itemId === line.itemId)
+        const menuItem = menuItems.get(line.itemId)
+        const optionIds = quoteLine?.optionIds ?? []
+        const baseName = menuItem?.name ?? quoteLine?.name ?? line.name
+        const displayName = localizedConfiguredLineName(line.itemId, baseName, optionIds, line.name, language)
+        return <li key={line.itemId}><span>{line.quantity} × {displayName}</span><strong>{formatMoney(line.lineTotalCents, currency, language)}</strong></li>
+      })}</ul>
         <div className="receipt-row"><span>{copy.tax}</span><strong>{formatMoney(order.taxCents, currency, language)}</strong></div>
         <div className="receipt-row receipt-total"><span>{copy.totalIncluded}</span><strong>{formatMoney(order.totalCents, currency, language)}</strong></div>
         <p className="receipt-demo-disclaimer">{copy.receiptDemo}</p>

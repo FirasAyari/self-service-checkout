@@ -1,9 +1,10 @@
-import type { Quote, Scenario } from '../api'
+import type { MenuItem, Quote, Scenario } from '../api'
 import type { Copy, Language } from '../copy'
-import { localizedMenuText } from './presentation'
+import { localizedConfiguredLineName } from './presentation'
 
 type PaymentScreenProps = {
   quote: Quote
+  menuItems: Map<string, MenuItem>
   scenario: Scenario
   language: Language
   copy: Copy
@@ -17,6 +18,7 @@ type PaymentScreenProps = {
 
 export function PaymentScreen({
   quote,
+  menuItems,
   scenario,
   language,
   copy,
@@ -50,7 +52,7 @@ export function PaymentScreen({
           <ul className="payment-summary">
             {quote.lines.map((line) => (
               <li key={line.itemId}>
-                <span>{line.quantity} &#215; {localizedMenuText(line.name, language)}</span>
+                <span>{line.quantity} &#215; {localizedConfiguredLineName(line.itemId, menuItems.get(line.itemId)?.name ?? line.name, line.optionIds, line.name, language)}</span>
                 <strong>{formatMoney(line.lineTotalCents, quote.currency, language)}</strong>
               </li>
             ))}

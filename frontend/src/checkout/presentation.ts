@@ -33,52 +33,67 @@ export function localizedOption(id: string, name: string, language: Language): s
   return ({ small: 'Pequeno', large: 'Grande', 'oat-milk': 'Leite de aveia', 'extra-shot': 'Dose extra' } as Record<string, string>)[id] ?? name
 }
 
-export function localizedMenuText(text: string, language: Language): string {
-  if (language !== 'pt-BR') return text
-  const menuTranslations: Record<string, string> = {
-    'Turkey melt': 'Sanduíche de peru gratinado',
-    'Roasted turkey, cheddar, tomato, and toasted sourdough.': 'Peru assado, cheddar, tomate e pão de fermentação natural tostado.',
-    'Garden wrap': 'Wrap de legumes',
-    'Hummus, cucumber, greens, and pickled onion.': 'Homus, pepino, folhas verdes e cebola em conserva.',
-    'Chicken club': 'Sanduíche club de frango',
-    'Grilled chicken, crisp lettuce, and herb mayo.': 'Frango grelhado, alface crocante e maionese de ervas.',
-    'Tomato panini': 'Panini de tomate',
-    'Mozzarella, basil, and roasted tomato.': 'Muçarela, manjericão e tomate assado.',
-    'Green grain bowl': 'Tigela de grãos verdes',
-    'Warm grains, avocado, greens, and lemon dressing.': 'Grãos quentes, abacate, folhas verdes e molho de limão.',
-    'Chicken harvest bowl': 'Tigela de frango com legumes da estação',
-    'Grilled chicken, brown rice, and seasonal vegetables.': 'Frango grelhado, arroz integral e legumes da estação.',
-    'Falafel bowl': 'Tigela de falafel',
-    'Crisp falafel, hummus, cucumber, and tahini.': 'Falafel crocante, homus, pepino e tahine.',
-    'Soup of the day': 'Sopa do dia',
-    'A warm cup made fresh each morning.': 'Uma sopa quentinha, preparada todas as manhãs.',
-    'Sparkling water': 'Água com gás',
-    'Cold, lightly sparkling water.': 'Água gelada com gás suave.',
-    'House iced tea': 'Chá gelado da casa',
-    'Unsweetened black tea with lemon.': 'Chá preto sem açúcar com limão.',
-    'Cold brew': 'Café extraído a frio',
-    'Slow-steeped coffee, served over ice.': 'Café extraído lentamente e servido com gelo.',
-    'Fresh lemonade': 'Limonada fresca',
-    'Bright lemon with just enough sweetness.': 'Limão fresco com o toque certo de doçura.',
-  }
-  const optionTranslations: Record<string, string> = {
-    Small: 'Pequeno',
-    Large: 'Grande',
-    'Oat milk': 'Leite de aveia',
-    'Extra shot': 'Dose extra',
+type MenuTextTranslation = { name: string; description: string; translatedName: string; translatedDescription: string }
+
+const menuTextTranslations: Record<string, MenuTextTranslation> = {
+  'turkey-melt': { name: 'Turkey melt', description: 'Roasted turkey, cheddar, tomato, and toasted sourdough.', translatedName: 'Sandu\u00edche de peru gratinado', translatedDescription: 'Peru assado, cheddar, tomate e p\u00e3o de fermenta\u00e7\u00e3o natural tostado.' },
+  'garden-wrap': { name: 'Garden wrap', description: 'Hummus, cucumber, greens, and pickled onion.', translatedName: 'Wrap de legumes', translatedDescription: 'Homus, pepino, folhas verdes e cebola em conserva.' },
+  'chicken-club': { name: 'Chicken club', description: 'Grilled chicken, crisp lettuce, and herb mayo.', translatedName: 'Sandu\u00edche club de frango', translatedDescription: 'Frango grelhado, alface crocante e maionese de ervas.' },
+  'tomato-panini': { name: 'Tomato panini', description: 'Mozzarella, basil, and roasted tomato.', translatedName: 'Panini de tomate', translatedDescription: 'Mu\u00e7arela, manjeric\u00e3o e tomate assado.' },
+  'grain-bowl': { name: 'Green grain bowl', description: 'Warm grains, avocado, greens, and lemon dressing.', translatedName: 'Tigela de gr\u00e3os verdes', translatedDescription: 'Gr\u00e3os quentes, abacate, folhas verdes e molho de lim\u00e3o.' },
+  'chicken-bowl': { name: 'Chicken harvest bowl', description: 'Grilled chicken, brown rice, and seasonal vegetables.', translatedName: 'Tigela de frango com legumes da esta\u00e7\u00e3o', translatedDescription: 'Frango grelhado, arroz integral e legumes da esta\u00e7\u00e3o.' },
+  'falafel-bowl': { name: 'Falafel bowl', description: 'Crisp falafel, hummus, cucumber, and tahini.', translatedName: 'Tigela de falafel', translatedDescription: 'Falafel crocante, homus, pepino e tahine.' },
+  'soup-cup': { name: 'Soup of the day', description: 'A warm cup made fresh each morning.', translatedName: 'Sopa do dia', translatedDescription: 'Uma sopa quentinha, preparada todas as manh\u00e3s.' },
+  'sparkling-water': { name: 'Sparkling water', description: 'Cold, lightly sparkling water.', translatedName: '\u00c1gua com g\u00e1s', translatedDescription: '\u00c1gua gelada com g\u00e1s suave.' },
+  'iced-tea': { name: 'House iced tea', description: 'Unsweetened black tea with lemon.', translatedName: 'Ch\u00e1 gelado da casa', translatedDescription: 'Ch\u00e1 preto sem a\u00e7\u00facar com lim\u00e3o.' },
+  'cold-brew': { name: 'Cold brew', description: 'Slow-steeped coffee, served over ice.', translatedName: 'Caf\u00e9 extra\u00eddo a frio', translatedDescription: 'Caf\u00e9 extra\u00eddo lentamente e servido com gelo.' },
+  lemonade: { name: 'Fresh lemonade', description: 'Bright lemon with just enough sweetness.', translatedName: 'Limonada fresca', translatedDescription: 'Lim\u00e3o fresco com o toque certo de do\u00e7ura.' },
+}
+
+const optionNames: Record<string, string> = {
+  small: 'Small',
+  large: 'Large',
+  'oat-milk': 'Oat milk',
+  'extra-shot': 'Extra shot',
+}
+
+export function localizedMenuItemName(itemId: string, name: string, language: Language): string {
+  if (language !== 'pt-BR') return name
+  const translation = menuTextTranslations[itemId]
+  return translation && name === translation.name ? translation.translatedName : name
+}
+
+export function localizedMenuDescription(itemId: string, description: string, language: Language): string {
+  if (language !== 'pt-BR') return description
+  const translation = menuTextTranslations[itemId]
+  return translation && description === translation.description ? translation.translatedDescription : description
+}
+
+export function localizedConfiguredLineName(
+  itemId: string,
+  itemName: string,
+  optionIds: string[],
+  fallbackLineName: string,
+  language: Language,
+): string {
+  if (language !== 'pt-BR') return fallbackLineName
+
+  // Without stable option IDs, preserve the server's full snapshot instead of parsing display punctuation.
+  if (optionIds.length === 0) {
+    return fallbackLineName === itemName ? localizedMenuItemName(itemId, itemName, language) : fallbackLineName
   }
 
-  const configuredLine = /^(.+?) \(([^()]*)\)$/.exec(text)
-  if (!configuredLine) return menuTranslations[text] ?? text
+  const translatedOptions = optionIds.map((id) => {
+    const optionName = optionNames[id]
+    return optionName ? localizedOption(id, optionName, language) : undefined
+  })
+  if (translatedOptions.some((name) => name === undefined)) return fallbackLineName
 
-  const [, itemName, selectedOptions] = configuredLine
-  const translatedItemName = menuTranslations[itemName] ?? itemName
-  const translatedOptions = selectedOptions.split(', ').map((option) => optionTranslations[option] ?? option)
-  return `${translatedItemName} (${translatedOptions.join(', ')})`
+  return `${localizedMenuItemName(itemId, itemName, language)} (${translatedOptions.join(', ')})`
 }
 
 export function categoryName(name: string, language: Language, copy: Copy): string {
   if (name === 'All') return copy.all
-  if (language === 'pt-BR') return ({ Sandwiches: 'Sanduíches', Bowls: 'Tigelas', Drinks: 'Bebidas' } as Record<string, string>)[name] ?? name
+  if (language === 'pt-BR') return ({ Sandwiches: 'Sandu\u00edches', Bowls: 'Tigelas', Drinks: 'Bebidas' } as Record<string, string>)[name] ?? name
   return name
 }
