@@ -18,7 +18,7 @@ const composePrefix = ['compose', '--project-name', projectName]
 const environment = { ...process.env, CHECKOUT_PORT: String(configuredPort) }
 
 function requireDocker() {
-  const engine = spawnSync('docker', ['info', '--format', '{{.Server.Version}}'], {
+  const engine = spawnSync('docker', ['info', '--format', '{{.ServerVersion}}'], {
     cwd: root,
     env: environment,
     stdio: 'ignore',

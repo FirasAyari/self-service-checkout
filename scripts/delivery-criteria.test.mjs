@@ -78,6 +78,8 @@ test('AC-D1 the container smoke checks the current brand, completes an order, an
   assert.match(smoke, /randomBytes\(6\)/)
   assert.match(smoke, /--project-name/)
   assert.match(smoke, /function requireDocker\(\)/)
+  assert.match(smoke, /'info',\s*'--format',\s*'\{\{\.ServerVersion\}\}'/)
+  assert.doesNotMatch(smoke, /\{\{\.Server\.Version\}\}/)
   assert.match(smoke, /Docker CLI is unavailable/)
   assert.match(smoke, /requireDocker\(\)[\s\S]*?try \{/)
   assert.match(smoke, /compose\(\['down', '--volumes', '--remove-orphans'\]\)/)
