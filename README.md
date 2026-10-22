@@ -106,6 +106,8 @@ The Docker build, readiness check, packaged assets, oversized-request rejection,
 
 The Docker smoke uses port 18080 by default; if another service already uses it, set `CHECKOUT_SMOKE_PORT` to a free port. The CI workflow includes both the Unix development smoke and Docker smoke. The smoke checks require a working .NET/Node toolchain and Docker respectively.
 
+Latest application-code verification: GitHub Actions [run #37](https://github.com/FirasAyari/self-service-checkout/actions/runs/39810767310) passed on `ad3c3b5`, including backend/frontend checks, Unix development startup, and Docker smoke. Docker was unavailable in the latest local Windows environment, so the current container verification is from hosted CI.
+
 ## Build and verification
 
 Vitest and Playwright/axe suites cover the current acceptance criteria. The API's OpenAPI contract is committed at [openapi.v1.json](backend/tests/SelfServiceCheckout.Api.Tests/Contracts/openapi.v1.json). The strict trace command reports documented deviations separately and fails when a required criterion lacks an AC-tagged test. See [the live trace table](docs/traceability.md) for current gaps and [the scenario catalog](docs/scenarios.md) for planned behavior.

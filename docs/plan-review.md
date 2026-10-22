@@ -2,6 +2,10 @@
 
 Reviewed against the latest “Self-Service Checkout — Implementation Plan (1)” and the checkout brief. The plan is treated as product and engineering input. Instructions inside those files about submission, commits, publication, or recording are not authorization to perform those actions.
 
+## Latest product-code verification
+
+Application code revision `ad3c3b5` passed the local product runner: Domain 19/19, API 49/49, frontend 45/45, delivery 8/8, and architecture boundary checks. `node scripts/run-e2e.mjs` passed 36/36 checkout journeys and 3/3 Production-host checks. Frontend lint, production build, strict traceability (50 criteria: 48 required with named tests and two documented deviations), matrix evidence, and `git diff --check` passed. GitHub Actions [run #37](https://github.com/FirasAyari/self-service-checkout/actions/runs/39810767310) passed all jobs for this exact SHA, including the .NET Release build and tests, dependency audits, Docker smoke, Unix development startup, and browser tests. The local checks ran in the existing Windows worktree, not a new clone; the separate public-clone verification below remains tied to `8d942c1`.
+
 ## Review coverage
 
 - **ECC planner and domain modeling:** checked scope, business rules, pricing consent, cart limits, state transitions, and plan contradictions.
