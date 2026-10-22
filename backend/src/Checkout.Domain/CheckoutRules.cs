@@ -2,15 +2,6 @@ using System.Collections.ObjectModel;
 
 namespace Checkout.Domain;
 
-public readonly record struct Money(long Cents)
-{
-    public static bool TryCreate(long cents, out Money money)
-    {
-        money = new Money(cents);
-        return cents >= 0;
-    }
-}
-
 public sealed record CartLine(string ItemId, int Quantity, IReadOnlyList<string>? OptionIds = null);
 
 public sealed record CartValidationResult(
