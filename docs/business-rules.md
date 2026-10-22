@@ -68,7 +68,7 @@ This is a compact, ID-preserving index of the rules from the latest implementati
 | BR-K3 | Confirmation can start a clean order without exposing a prior customer's flow. |
 | BR-K4 | Lock the submit control while the request is in flight; server idempotency remains the safety backstop. |
 | BR-K5 | Use large touch targets, readable text, AA contrast, labelled controls, visible focus, and preserve browser zoom/accessibility functions. |
-| BR-K6 | Errors explain what happened and the safe next action; unknown money state is never described as a decline. |
+| BR-K6 | Errors explain what happened and the safe next action; unknown money state is never described as a decline. A pending order shows its reference and configured venue support link; a kiosk trial requires a reachable support URL. |
 | BR-K7 | Support the planned landscape and portrait tablet sizes; keep active content reachable when the on-screen keyboard opens. |
 | BR-K8 | Keep customer-facing copy in a central, localization-ready source; the plan's v1 language is English. |
 | BR-X1 | Validate request shape at the API boundary, reject unknown JSON properties, and cap request size. |

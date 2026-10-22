@@ -63,6 +63,7 @@ builder.Services.AddOptions<CheckoutOptions>()
     .Validate(options => options.TaxRateBasisPoints is >= 0 and <= 10_000, "TaxRateBasisPoints must be between 0 and 10000.")
     .Validate(options => options.QuoteLifetimeSeconds is >= 30 and <= 600, "QuoteLifetimeSeconds must be between 30 and 600.")
     .Validate(options => CheckoutOptions.IsValidBusinessTimeZone(options.BusinessTimeZone), "BusinessTimeZone must be a valid time-zone ID on this host.")
+    .Validate(options => CheckoutOptions.IsValidHelpUrl(options.HelpUrl), "Checkout:HelpUrl must be an absolute HTTPS URL without embedded credentials.")
     .Validate(options => !string.IsNullOrWhiteSpace(options.KioskId), "KioskId is required.")
     .ValidateOnStart();
 builder.Services.AddSingleton(provider => provider.GetRequiredService<IOptions<CheckoutOptions>>().Value);

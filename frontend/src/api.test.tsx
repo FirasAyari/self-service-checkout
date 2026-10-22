@@ -45,6 +45,19 @@ function respondWith(body: unknown, status = 200) {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('AC-D4 runtime API response validation', () => {
+  it('SC-D4 accepts only a safe HTTPS kiosk help URL or an explicit null', async () => {
+    respondWith({ helpUrl: null })
+    await expect(api.kioskHelp()).resolves.toEqual({ helpUrl: null })
+
+    respondWith({ helpUrl: 'https://support.example.test/kiosk' })
+    await expect(api.kioskHelp()).resolves.toEqual({ helpUrl: 'https://support.example.test/kiosk' })
+
+    for (const helpUrl of ['javascript:alert(1)', 'http://support.example.test', 'https://user:password@support.example.test']) {
+      respondWith({ helpUrl })
+      await expect(api.kioskHelp()).rejects.toMatchObject({ name: 'ApiError', status: 200 })
+    }
+  })
+
   it('accepts a valid menu response and rejects invalid catalog amounts and stock', async () => {
     const body = validMenu()
     respondWith(body)

@@ -9,6 +9,7 @@ public sealed class CheckoutOptions
     public int QuoteLifetimeSeconds { get; init; } = 120;
     public string BusinessTimeZone { get; init; } = "UTC";
     public string KioskId { get; init; } = "kiosk-1";
+    public string? HelpUrl { get; init; }
 
     public static bool IsValidBusinessTimeZone(string? timeZoneId)
     {
@@ -31,6 +32,16 @@ public sealed class CheckoutOptions
         {
             return false;
         }
+    }
+
+    public static bool IsValidHelpUrl(string? helpUrl)
+    {
+        if (string.IsNullOrWhiteSpace(helpUrl)) return true;
+
+        return Uri.TryCreate(helpUrl, UriKind.Absolute, out var uri) &&
+            uri.Scheme == Uri.UriSchemeHttps &&
+            !string.IsNullOrWhiteSpace(uri.Host) &&
+            string.IsNullOrEmpty(uri.UserInfo);
     }
 }
 

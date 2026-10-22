@@ -35,6 +35,26 @@
         }
       }
     },
+    "/api/kiosk/help": {
+      "get": {
+        "tags": [
+          "Checkout"
+        ],
+        "operationId": "GetKioskHelp",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KioskHelpResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/menu": {
       "get": {
         "tags": [
@@ -601,6 +621,21 @@
         "properties": {
           "status": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "KioskHelpResponse": {
+        "required": [
+          "helpUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "helpUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         },
         "additionalProperties": false

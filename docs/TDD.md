@@ -248,7 +248,7 @@ sessionStorage holds only:
 
 Prices, names, customer data, and payment credentials are not persisted by the browser. On reload, the cart is repriced by requesting a new quote; a pending attempt is recovered by its key. Paid completion and explicit session reset clear the cart. Idle warning begins after 60 seconds; the session resets after another 15 seconds unless continued. Processing and unresolved attempts are exempt from automatic clearing, so privacy reset does not discard an uncertain order. Paid confirmation resets after 30 seconds.
 
-The UI has loading, empty, sold-out, quote-change, out-of-stock, decline, rate-limit, pending, and network-recovery states. Focus moves with screen changes, modal dialogs constrain focus, and the accessibility and browser checks exercise keyboard and responsive behavior. Real hardware behavior still needs target-device verification.
+The UI has loading, empty, sold-out, quote-change, out-of-stock, decline, rate-limit, pending, and network-recovery states. A pending order keeps its public reference and offers a venue-owned HTTPS help link when configured, with posted-contact guidance as the fallback; this link does not change or settle the order. Focus moves with screen changes, modal dialogs constrain focus, and the accessibility and browser checks exercise keyboard and responsive behavior. Real hardware behavior still needs target-device verification.
 
 ## Security and privacy controls
 

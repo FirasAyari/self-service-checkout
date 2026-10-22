@@ -21,4 +21,4 @@ Keep this implementation as a local single-location demo: simulated payment outc
 
 - The app can demonstrate quote consent, idempotent order handling, stock reservations, and unknown outcomes without implying production readiness.
 - The demo requires explicit manual reset for a permanently unknown mock attempt.
-- Production requires a payment provider, operational roles, support flow, and deployment/data-store decisions before launch.
+- A real pilot requires a payment provider, operational roles, a reachable customer support channel, an approved pending-order recovery procedure, and deployment/data-store decisions before launch. The configured kiosk help link gives the customer an escalation route but does not settle an order.

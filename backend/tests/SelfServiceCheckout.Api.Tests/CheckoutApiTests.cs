@@ -46,6 +46,35 @@ public sealed partial class CheckoutApiTests
         Assert.Equal(12, items["turkey-melt"].Stock);
     }
 
+    [Fact(DisplayName = "SC-D4 AC-Y6: kiosk help endpoint returns the configured customer support URL")]
+    public async Task GetKioskHelp_ReturnsConfiguredHttpsHelpUrl()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost(additionalEnvironment: new Dictionary<string, string?>
+        {
+            ["Checkout__HelpUrl"] = "https://support.example.test/kiosk"
+        });
+
+        using var response = await host.Client.GetAsync("/api/kiosk/help");
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("https://support.example.test/kiosk", body.GetProperty("helpUrl").GetString());
+    }
+
+    [Fact(DisplayName = "SC-D4: kiosk help contact is explicitly empty when no venue URL is configured")]
+    public async Task GetKioskHelp_ReturnsNullWhenHelpUrlIsNotConfigured()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+
+        using var response = await host.Client.GetAsync("/api/kiosk/help");
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("helpUrl").ValueKind);
+    }
+
     [Fact(DisplayName = "BR-M3: menu version changes with price, availability, and stock but stays stable otherwise")]
     public async Task MenuVersion_ChangesWhenRelevantCatalogDataChanges()
     {
@@ -210,6 +239,20 @@ public sealed partial class CheckoutApiTests
             }));
 
         Assert.Contains("BusinessTimeZone", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "EVAL-PROD-03: unsafe kiosk help URLs prevent API startup")]
+    public void Startup_RejectsNonHttpsKioskHelpUrl()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+
+        var exception = Assert.ThrowsAny<OptionsValidationException>(() => database.StartHost(
+            additionalEnvironment: new Dictionary<string, string?>
+            {
+                ["Checkout__HelpUrl"] = "http://support.example.test/kiosk"
+            }));
+
+        Assert.Contains("Checkout:HelpUrl", exception.Message, StringComparison.Ordinal);
     }
 
     [Theory(DisplayName = "BR-X4: demo administration requires Development and a sufficiently long token")]

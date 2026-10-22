@@ -10,6 +10,11 @@ public static class CheckoutEndpoints
     {
         var group = endpoints.MapGroup("/api").WithTags("Checkout");
 
+        group.MapGet("/kiosk/help", (CheckoutOptions options) =>
+                TypedResults.Ok(new KioskHelpResponse(options.HelpUrl)))
+            .WithName("GetKioskHelp")
+            .Produces<KioskHelpResponse>();
+
         group.MapGet("/menu", async (IMenuQueryService catalog, CancellationToken cancellationToken) =>
                 TypedResults.Ok(ApiContractMappings.ToResponse(await catalog.GetMenuAsync(cancellationToken))))
             .WithName("GetMenu")

@@ -4,7 +4,7 @@ Reviewed against the latest “Self-Service Checkout — Implementation Plan (1)
 
 ## Latest product-code verification
 
-Latest verification (2026-10-22): recovery revision `8705087` passed `node scripts/run-tests.mjs` (Domain 19/19, API 49/49, frontend 45/45, delivery 8/8, and architecture boundaries) and `node scripts/run-e2e.mjs` (37/37 checkout journeys and 3/3 Production-host checks). Frontend lint, production build, generated API type check, strict traceability (50 criteria: 48 required with named tests and two documented deviations), matrix evidence, and `git diff --check` passed. GitHub Actions [run #45](https://github.com/FirasAyari/self-service-checkout/actions/runs/39826151726) passed all three jobs on that application revision; [run #46](https://github.com/FirasAyari/self-service-checkout/actions/runs/39826589767) passed all jobs on documentation-only commit `c7bf1b8`.
+Latest local verification (2026-10-22; working tree based on `46ae445`, before commit): `node scripts/run-tests.mjs` passed Domain 19/19, API 52/52, frontend 46/46, delivery 8/8, and architecture boundaries. `node scripts/run-e2e.mjs` passed 38/38 checkout journeys and 3/3 Production-host checks. The .NET Release build completed with zero warnings/errors; frontend lint, generated API type check, npm audit (zero vulnerabilities), transitive NuGet vulnerability scan, strict traceability (50 criteria: 48 required with named tests and two ADR-0002 deviations), submission-matrix evidence, and `git diff --check` passed. This is local working-tree evidence; hosted CI and a clean clone for the pending-help change are still to be recorded.
 
 ## Review coverage
 
@@ -62,7 +62,7 @@ Latest verification (2026-10-22): recovery revision `8705087` passed `node scrip
 - An absent ledger entry cannot prove that payment failed. Unknown attempts remain pending and do not release inventory.
 - Payment status lookup uses a POST body, so the idempotency key does not appear in URLs.
 - The client never says “not charged” for a network failure. It checks the same attempt, presents the pending state, and offers a retry with that same key.
-- The plan's staff escalation assumption does not match a no-cashier counter. The demo gives self-service status guidance and does not invent an available staff workflow.
+- The plan's staff escalation assumption does not match a no-cashier counter. The pending screen keeps the order reference visible and offers a venue-owned help link when configured, with posted-contact guidance as fallback; it does not pretend to resolve the payment or expose an unavailable staff workflow.
 - Development-only demo controls support catalog edits, reset, mock outcome overrides, bounded latency, and dropped-response recovery. They are not available unless explicitly enabled with a valid token and are not intended to be deployed as a production administration surface.
 - Kiosk privacy follows the plan's 60-second idle prompt, 15-second warning period, and 30-second paid confirmation reset. The prompt offers a clear continue action. Physical-device privacy, keyboard, zoom, screen-reader, and timing validation is out of scope here and is listed for a real deployment above.
 

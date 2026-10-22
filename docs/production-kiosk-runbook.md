@@ -22,11 +22,14 @@ Checkout__DatabasePath=C:\ProgramData\SelfServiceCheckout\checkout.db
 Checkout__KioskId=store-001-kiosk-01
 Checkout__BusinessTimeZone=America/Sao_Paulo
 Checkout__MockPaymentsEnabled=true
+Checkout__HelpUrl=https://support.example.com/kiosk
 DemoMode__Enabled=false
 ReverseProxy__KnownProxies__0=127.0.0.1
 ```
 
-Replace the host name, kiosk ID, time zone, and proxy address with values for the installation. If the proxy runs on another host, set its exact IP address as a known proxy. With no configured proxy address, forwarded headers are ignored. Do not clear the trusted-proxy lists to make a proxy work; an empty list permits untrusted forwarded headers. The server validates the time-zone ID at startup.
+Replace the host name, kiosk ID, time zone, proxy address, and help URL with values for the installation. If the proxy runs on another host, set its exact IP address as a known proxy. With no configured proxy address, forwarded headers are ignored. Do not clear the trusted-proxy lists to make a proxy work; an empty list permits untrusted forwarded headers. The server validates the time-zone ID and help URL at startup.
+
+Set `Checkout__HelpUrl` to the venue's reachable HTTPS help page before a kiosk trial. The pending-order screen displays this link beside the order reference so a customer alone at the screen has a next step if confirmation is delayed. Do not put credentials or customer data in the URL.
 
 `Checkout__MockPaymentsEnabled=true` enables only the local simulation. In Production, the customer does not choose the outcome; every new attempt uses the standard simulated approval, the API enforces that outcome, and the screen and receipt state that no money was charged. Keep the demo label visible. `DemoMode__Enabled` must remain false in Production; attempts to enable the administration endpoints outside Development fail startup validation. The application has no customer payment-detail fields. Do not add real payment credentials to its configuration.
 
@@ -38,7 +41,7 @@ Replace the host name, kiosk ID, time zone, and proxy address with values for th
 4. Start the service, then require `GET /health/live` and `GET /health/ready` to return `200`. Readiness checks the checkout database. Check that the browser loads from the same origin and that its API requests succeed.
 5. Run one staff-supervised demo order, verify the receipt says the result is simulated, and confirm a fresh order starts without previous customer data.
 6. Record the application version, database backup identifier, kiosk identifier, proxy/TLS check, test order reference, operator, and outcome in the deployment record.
-7. Name the application maintainer, on-site operator, and backup owner, with a reachable escalation contact for unresolved orders. Do not begin a kiosk trial without named coverage.
+7. Name the application maintainer, on-site operator, and backup owner, and verify the configured customer help link reaches a monitored support channel. Do not begin a kiosk trial without named coverage.
 
 ## Backup and recovery
 
@@ -71,7 +74,7 @@ Production mode forces the local simulated approval and never charges money. If 
 5. Preserve the database and logs. Do not run Development demo-reset commands or edit order, ledger, or stock rows directly.
 6. Return the kiosk to service only after the order has a terminal status and a named operator records the recovery.
 
-The application has no Production operator screen or safe manual settlement endpoint. If the original attempt remains pending, leave it pending, keep the kiosk out of service, preserve the database, and escalate to the named application maintainer with the recovery record above. The maintainer must not guess an outcome or release the reservation by editing the database. The demo has no automated or operator-controlled way to resolve an attempt with no authoritative result; a real kiosk pilot is blocked until an owner-approved recovery capability and procedure exist.
+The customer-facing help link provides an escalation route; it does not settle orders. The application has no Production operator screen or safe manual settlement endpoint. If the original attempt remains pending, leave it pending, keep the kiosk out of service, preserve the database, and escalate to the named application maintainer with the recovery record above. The maintainer must not guess an outcome or release the reservation by editing the database. The demo has no automated or operator-controlled way to resolve an attempt with no authoritative result; a real kiosk pilot is blocked until an owner-approved recovery capability and procedure exist.
 
 ## Out of scope for this submission: target-kiosk validation
 

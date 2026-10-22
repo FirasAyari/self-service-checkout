@@ -11,7 +11,7 @@ vi.mock('./api', () => ({
     code?: string
     constructor(message: string, status: number, code?: string) { super(message); this.status = status; this.code = code }
   },
-  api: { menu: vi.fn(), quote: vi.fn(), placeOrder: vi.fn(), status: vi.fn() },
+  api: { menu: vi.fn(), kioskHelp: vi.fn(), quote: vi.fn(), placeOrder: vi.fn(), status: vi.fn() },
 }))
 
 const menu: Menu = {
@@ -45,6 +45,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   sessionStorage.clear()
   vi.mocked(api.menu).mockResolvedValue(menu)
+  vi.mocked(api.kioskHelp).mockResolvedValue({ helpUrl: null })
   vi.mocked(api.quote).mockResolvedValue(quote)
   vi.mocked(api.placeOrder).mockResolvedValue(paidOrder)
   vi.mocked(api.status).mockResolvedValue(paidOrder)

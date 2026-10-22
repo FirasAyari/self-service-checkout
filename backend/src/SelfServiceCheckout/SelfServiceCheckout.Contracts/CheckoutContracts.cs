@@ -25,6 +25,8 @@ public sealed record MenuCategoryDto(string Name, IReadOnlyList<MenuItemDto> Ite
 
 public sealed record MenuResponse(string Version, IReadOnlyList<MenuCategoryDto> Categories);
 
+public sealed record KioskHelpResponse(string? HelpUrl);
+
 public sealed record CartLineRequest(
     [property: JsonRequired] string ItemId,
     [property: JsonRequired] int Quantity,

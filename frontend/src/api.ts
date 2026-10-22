@@ -1,6 +1,7 @@
 import type {
   MenuItemDto,
   MenuResponse,
+  KioskHelpResponse,
   MockPaymentScenario,
   OrderLineStatusDto,
   OrderStatusResponse,
@@ -9,6 +10,7 @@ import type {
 
 export type MenuItem = MenuItemDto
 export type Menu = MenuResponse
+export type KioskHelp = KioskHelpResponse
 export type Quote = QuoteResponse
 export type Scenario = MockPaymentScenario
 export type OrderLine = OrderLineStatusDto
@@ -55,6 +57,19 @@ function isPositiveSafeInteger(value: unknown): value is number {
 
 function isCurrencyCode(value: unknown): value is string {
   return typeof value === 'string' && /^[A-Z]{3}$/.test(value)
+}
+
+function isKioskHelp(value: unknown): value is KioskHelp {
+  if (!isRecord(value)) return false
+  if (value.helpUrl === null) return true
+  if (typeof value.helpUrl !== 'string') return false
+
+  try {
+    const url = new URL(value.helpUrl)
+    return url.protocol === 'https:' && url.hostname.length > 0 && !url.username && !url.password
+  } catch {
+    return false
+  }
 }
 
 function isDateTime(value: unknown): value is string {
@@ -141,6 +156,7 @@ export async function request<T>(path: string, init: RequestInit, validate: (val
 
 export const api = {
   menu: () => request('/api/menu', { method: 'GET' }, isMenu),
+  kioskHelp: () => request('/api/kiosk/help', { method: 'GET' }, isKioskHelp),
   quote: (items: { itemId: string; quantity: number; optionIds: string[] }[]) =>
     request('/api/quotes', { method: 'POST', body: JSON.stringify({ items }) }, isQuote),
   placeOrder: async (quoteId: string, idempotencyKey: string, scenario: Scenario) => {

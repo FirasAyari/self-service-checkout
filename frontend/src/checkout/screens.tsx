@@ -129,8 +129,8 @@ export function ReviewScreen({ quote, cart, menuItems, language, copy, busy, err
   </section>
 }
 
-export function ProcessingScreen({ order, busy, recovering, error, language, copy, onCheck, onRetry }: {
-  order: OrderStatus | null; busy: boolean; recovering: boolean; error: string | null; language: Language; copy: Copy; onCheck: () => void; onRetry: () => void
+export function ProcessingScreen({ order, busy, recovering, error, helpUrl, language, copy, onCheck, onRetry }: {
+  order: OrderStatus | null; busy: boolean; recovering: boolean; error: string | null; helpUrl: string | null; language: Language; copy: Copy; onCheck: () => void; onRetry: () => void
 }) {
   const pending = order === null || order.status === 'PENDING_PAYMENT'
   const orderMessage = order?.status === 'PAID' ? copy.orderPaidMessage : order?.status === 'PAYMENT_FAILED' ? copy.orderDeclinedMessage : order?.message
@@ -138,6 +138,10 @@ export function ProcessingScreen({ order, busy, recovering, error, language, cop
     <div className="status-orbit" aria-hidden="true"><span /><i /><b /></div><span className="eyebrow"><span className="eyebrow-line" /> {copy.stepCheckout}</span>
     <h1 id="processing-title" tabIndex={-1}>{pending ? copy.confirming : copy.checking}</h1><p className="status-message">{pending ? copy.pending : orderMessage}</p>
     {pending && order && <p className="reference-note status-reference">{copy.reference} <strong>{order.publicReference.toUpperCase()}</strong></p>}
+    {pending && <div className="pending-help">
+      <p>{helpUrl ? copy.pendingHelp : copy.pendingHelpUnavailable}</p>
+      {helpUrl && <a href={helpUrl} target="_blank" rel="noopener noreferrer">{copy.contactSupport}</a>}
+    </div>}
     {pending && <p className="polling-note" role="status">{language === 'pt-BR' ? 'Verificando automaticamente a cada 5 segundos…' : 'Checking automatically every 5 seconds…'}</p>}
     {error && <div className="error-banner status-error" role="status">{error}</div>}
     <div className="status-actions"><button className="primary-button" onClick={onCheck} disabled={busy}>{recovering ? copy.checkingAttempt : copy.checkStatus}</button>

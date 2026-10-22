@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { api } from './api'
 import { isDemoOutcomeSelectionEnabled } from './demo-outcome-selection'
 import { messages, type Language } from './copy'
 import { PaymentScreen } from './checkout/PaymentScreen'
@@ -15,6 +16,7 @@ export function App() {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState)
   const [language, setLanguage] = useState<Language>(() => sessionStorage.getItem('goodtable.language') === 'pt-BR' ? 'pt-BR' : 'en')
   const [paymentCooldownSeconds, setPaymentCooldownSeconds] = useState(readPaymentCooldownSeconds)
+  const [helpUrl, setHelpUrl] = useState<string | null>(null)
   const copy = messages[language]
   const [category, setCategory] = useState('All')
   const { loadMenu, refreshQuote } = useCatalogQuoteFlow(state, dispatch, copy)
@@ -41,6 +43,16 @@ export function App() {
     cartActions.cancelClearOrder,
     cartActions.clearUndo,
   )
+
+  useEffect(() => {
+    let mounted = true
+    void api.kioskHelp().then((help) => {
+      if (mounted) setHelpUrl(help.helpUrl)
+    }).catch(() => {
+      if (mounted) setHelpUrl(null)
+    })
+    return () => { mounted = false }
+  }, [])
 
   useEffect(() => {
     if (!state.menu) return
@@ -142,7 +154,7 @@ export function App() {
           paymentCooldownSeconds={paymentCooldownSeconds} allowOutcomeSelection={demoOutcomeSelectionEnabled} formatMoney={formatMoney} onBack={() => dispatch({ type: 'back-to-review' })}
           onScenario={(scenario) => dispatch({ type: 'scenario', scenario })} onSubmit={() => void submitPayment()} />}
 
-        {state.screen === 'processing' && <ProcessingScreen order={state.order} busy={state.busy} recovering={state.recovering} error={state.error}
+        {state.screen === 'processing' && <ProcessingScreen order={state.order} busy={state.busy} recovering={state.recovering} error={state.error} helpUrl={helpUrl}
           language={language} copy={copy} onCheck={() => void checkStatus()} onRetry={() => void retrySameAttempt()} />}
 
         {state.screen === 'complete' && state.order && <CompleteScreen order={state.order} quote={state.quote} menuItems={allItems} language={language} copy={copy}

@@ -157,6 +157,9 @@ h1, h2 { font-family: Fraunces, Georgia, serif; font-weight: 600; letter-spacing
 .status-screen h1, .complete-screen h1 { margin: 15px 0 9px; color: #2c3d30; font-size: 40px; }
 .status-message, .complete-screen > p { max-width: 470px; margin: 0 auto; color: #626a5e; font-size: 14px; line-height: 1.7; }
 .status-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 25px; }
+.pending-help { max-width: 470px; margin-top: 20px; padding: 14px 18px; border: 1px solid #dce4d8; border-radius: 10px; background: #f1f4ed; color: #596355; font-size: 13px; line-height: 1.6; }
+.pending-help p { margin: 0; }
+.pending-help a { display: inline-flex; align-items: center; min-height: 44px; margin-top: 7px; color: #315239; font-weight: 700; text-underline-offset: 3px; }
 .attempt-note { margin-top: 15px; color: #62685f; font-size: 11px; }
 .status-error { max-width: 550px; justify-content: center; margin: 17px auto 0; }
 .complete-check { display: grid; place-items: center; width: 66px; height: 66px; margin-bottom: 23px; border-radius: 50%; background: #e5efe1; color: #416548; font-size: 27px; }

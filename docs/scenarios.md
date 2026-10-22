@@ -46,7 +46,7 @@ Tags: **U** unit, **I** API/integration, **E** browser end-to-end.
 | SC-D1 | Definite decline | Keep cart; state no charge only when decline is authoritative. | E |
 | SC-D2 | Specific card decline reason | The demo outcome selector controls the simulated result; card values do not select a decline reason. | — |
 | SC-D3 | Timeout after payment approval | Stay confirming, then reconcile to paid with one order. | I/E |
-| SC-D4 | Timeout without a payment result | Remain pending until an authoritative result; do not release stock on absence alone. | I |
+| SC-D4 | Timeout without a payment result | Remain pending until an authoritative result; do not release stock on absence alone. Show the order reference and configured venue help link. | I/E |
 | SC-D5 | Double tap Pay | Disable client control and create at most one order by key. | E/I |
 | SC-D6 | Reload while processing | Restore only cart IDs/quantities and the unresolved attempt identifiers, then resolve with the same key; no prices/card data are stored. | E |
 | SC-D7 | Connection drops after request reaches server | Same key resolves/replays the original attempt. | I |

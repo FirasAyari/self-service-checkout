@@ -44,6 +44,7 @@ async function mockCheckoutApi(page: Page, options: { priceOnRefresh?: number; s
     const stock = menuCalls > 1 && options.stockOnRefresh !== undefined ? options.stockOnRefresh : 5
     await route.fulfill({ json: catalog(price, stock) })
   })
+  await page.route('**/api/kiosk/help', (route) => route.fulfill({ json: { helpUrl: null } }))
   await page.route('**/api/quotes', async (route: Route) => {
     if (options.quoteGate) await options.quoteGate
     const body = route.request().postDataJSON() as { items: { itemId: string; quantity: number }[] }
@@ -265,11 +266,28 @@ test('AC-Y6 / AC-K2 a payment with no ledger result stays pending after 30 secon
   await expect(page.getByRole('heading', { name: 'Confirming your order.' })).toBeVisible()
   await page.clock.runFor(30_000)
   await expect(page.getByRole('heading', { name: 'Confirming your order.' })).toBeVisible()
+  await expect(page.getByText('If this order stays pending, keep the reference and use the venue’s posted support contact.')).toBeVisible()
   await expect(page.getByText(publicReference, { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: /Place demo order/ })).toHaveCount(0)
   await expect(page.getByRole('alertdialog')).toHaveCount(0)
   expect(api.paymentAttempts).toBe(1)
   expect(api.statusPolls).toBeGreaterThanOrEqual(1)
+})
+
+test('SC-D4 AC-Y6 a stuck order shows venue help and its reference without offering a new attempt', async ({ page }) => {
+  const api = await mockCheckoutApi(page, { settleAfterPolls: 999 })
+  await page.route('**/api/kiosk/help', (route) => route.fulfill({ json: { helpUrl: 'https://support.example.test/kiosk' } }))
+  await addOneAndReview(page)
+  await continueToOrder(page)
+  await page.locator('#payment-scenario').selectOption('StillUnknown')
+  await payDemoOrder(page)
+
+  await expect(page.getByRole('heading', { name: 'Confirming your order.' })).toBeVisible()
+  await expect(page.getByText('Still confirming after a minute? Contact venue support and share the order reference above.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Contact venue support' })).toHaveAttribute('href', 'https://support.example.test/kiosk')
+  await expect(page.getByText(publicReference, { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Place demo order/ })).toHaveCount(0)
+  expect(api.paymentAttempts).toBe(1)
 })
 
 test('SC-E2 SC-D14 AC-Y3 a slow API shows progress and duplicate taps create one request with one idempotency key', async ({ page }) => {

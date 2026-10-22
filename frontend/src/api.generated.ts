@@ -34,6 +34,9 @@ export type DemoChaosStateDto = {
 export type HealthEndpointResponse = {
   "status": string
 }
+export type KioskHelpResponse = {
+  "helpUrl": null | string
+}
 export type MenuCategoryDto = {
   "name": string
   "items": (MenuItemDto)[]
