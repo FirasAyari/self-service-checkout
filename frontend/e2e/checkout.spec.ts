@@ -183,6 +183,7 @@ test('AC-Y5 / AC-R3 / AC-R4 / AC-M5 a decline retains cart, highlights price cha
   const api = await mockCheckoutApi(page, { priceOnRefresh: 900 })
   await addOneAndReview(page)
   await expect(page.getByText('Price or availability was updated.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Update total' })).toHaveCount(0)
   await page.getByRole('checkbox', { name: 'I accept the updated total of $9.00' }).click()
   await expect(page.getByRole('button', { name: 'Continue to place order' })).toBeEnabled()
   await continueToOrder(page)
