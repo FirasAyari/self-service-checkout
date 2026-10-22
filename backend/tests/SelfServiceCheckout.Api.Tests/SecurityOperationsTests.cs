@@ -292,4 +292,32 @@ public sealed partial class CheckoutApiTests
         Assert.Equal(orderCount, await CountOrdersAsync(host));
     }
 
+    [Fact(DisplayName = "AC-O7 SC-G6: concurrent duplicate submissions create one order and reserve stock once")]
+    public async Task ConcurrentDuplicateSubmissions_ReturnTheSameOrderAndPickupNumber()
+    {
+        using var database = new TemporaryCheckoutDatabase();
+        using var host = database.StartHost();
+        var quote = await CreateQuoteValueAsync(host.Client, new CartLineRequest("sparkling-water", 1));
+        const string idempotencyKey = "88888888888848888888888888888888";
+
+        var results = await Task.WhenAll(Enumerable.Range(1, 2).Select(index => PlaceOrderAsync(
+            host.Server,
+            new IPAddress(new byte[] { 10, 31, 0, (byte)index }),
+            quote.QuoteId,
+            idempotencyKey,
+            MockPaymentScenario.Approve)));
+
+        Assert.All(results, result =>
+        {
+            Assert.Contains(result.StatusCode, new[] { HttpStatusCode.Created, HttpStatusCode.OK, HttpStatusCode.Accepted });
+            Assert.NotNull(result.Order);
+        });
+        Assert.Single(results.Select(result => result.Order!.PublicReference).Distinct());
+        Assert.Single(results.Select(result => result.Order!.PickupNumber).Where(number => number is not null).Distinct());
+        Assert.Contains(results, result => result.Order?.Status == "PAID");
+        Assert.Equal(19, await GetStockAsync(host, "sparkling-water"));
+        Assert.Equal(1, await CountOrdersAsync(host));
+        Assert.Equal(1, await CountLedgerEntriesAsync(host));
+    }
+
 }
