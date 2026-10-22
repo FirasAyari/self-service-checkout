@@ -166,7 +166,7 @@ h1, h2 { font-family: Fraunces, Georgia, serif; font-weight: 600; letter-spacing
 .pickup-card strong { color: #3c5c41; font-family: Fraunces, Georgia, serif; font-size: 96px; line-height: 1.05; }
 .pickup-card small { color: #596355; font-size: 11px; }
 .reference-note { margin: 8px 0 0 !important; font-size: 11px !important; }
-.reference-note strong { color: #52634f; letter-spacing: 1px; }
+.reference-note strong { color: #52634f; letter-spacing: 1px; overflow-wrap: anywhere; }
 .new-order-button { margin-top: 26px; }
 .modal-backdrop { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(25, 37, 27, .38); backdrop-filter: blur(3px); }
 .idle-dialog { width: min(460px, 100%); padding: 31px; border: 1px solid #e2e8dc; border-radius: 14px; background: #fffefa; box-shadow: 0 24px 72px rgba(19, 31, 22, .24); }

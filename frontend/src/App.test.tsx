@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import { api, type Menu, type OrderStatus, type Quote } from './api'
+import { createReceiptQrValue } from './checkout/screens'
 import { getEffectivePaymentScenario, isDemoOutcomeSelectionEnabled } from './demo-outcome-selection'
 
 vi.mock('./api', () => ({
@@ -52,6 +53,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('checkout client acceptance criteria', () => {
+  it('AC-O5 keeps the full public reference in the receipt QR payload', () => {
+    const payload = JSON.parse(createReceiptQrValue(paidOrder, 'USD')) as Record<string, unknown>
+
+    expect(payload).toEqual({
+      receiptVersion: 1,
+      reference: paidOrder.publicReference.toUpperCase(),
+      pickupNumber: paidOrder.pickupNumber,
+      totalCents: paidOrder.totalCents,
+      currency: 'USD',
+    })
+  })
+
   it('AC-D5: outcome selection is limited to development and test builds', () => {
     expect(isDemoOutcomeSelectionEnabled('production')).toBe(false)
     expect(isDemoOutcomeSelectionEnabled('development')).toBe(true)
@@ -61,7 +74,7 @@ describe('checkout client acceptance criteria', () => {
     expect(getEffectivePaymentScenario('development', 'StillUnknown')).toBe('StillUnknown')
   })
 
-  it('AC-D7: places a simulated order without requesting payment details', async () => {
+  it('AC-D7 BR-Y3: places a simulated order without requesting payment details', async () => {
     await openPaymentScreen()
     expect(screen.queryByLabelText(/card number|expiry|security code/i)).toBeNull()
     const submit = screen.getByRole('button', { name: /Place demo order/i }) as HTMLButtonElement
@@ -74,10 +87,11 @@ describe('checkout client acceptance criteria', () => {
     expect(call[2]).toBe('Approve')
   })
 
-  it('AC-D7: the simulated checkout renders no payment credential inputs', async () => {
+  it('AC-D7 BR-X2: the simulated checkout renders no free-text or payment credential inputs', async () => {
     await openPaymentScreen()
     expect(screen.queryByLabelText(/card number|expiry|security code/i)).toBeNull()
     expect(document.querySelectorAll('input').length).toBe(0)
+    expect(document.querySelectorAll('textarea, [contenteditable="true"]').length).toBe(0)
     expect((screen.getByRole('button', { name: /Place demo order/i }) as HTMLButtonElement).disabled).toBe(false)
   })
 
@@ -102,7 +116,7 @@ describe('checkout client acceptance criteria', () => {
     expect(api.quote).toHaveBeenCalledWith([{ itemId: 'cold-brew', quantity: 1, optionIds: ['large', 'oat-milk'] }])
   })
 
-  it('BR-K8 localizes configured option names in review, payment, and the receipt', async () => {
+  it('AC-K5 BR-K8 localizes the accessible brand name and configured option names', async () => {
     const optionMenu: Menu = { ...menu, categories: [{ name: 'Drinks', items: [{
       id: 'cold-brew', category: 'Drinks', name: 'Cold brew', description: 'Slow-steeped coffee.', priceCents: 425, stock: 12, isAvailable: true,
       optionGroups: [
@@ -116,7 +130,9 @@ describe('checkout client acceptance criteria', () => {
     vi.mocked(api.placeOrder).mockResolvedValue({ ...paidOrder, lines: configuredQuote.lines, totalCents: 600, taxCents: 44 })
 
     render(<App />)
+    expect(screen.getByRole('link', { name: 'Good Table — Fresh food, good vibes' })).toBeTruthy()
     fireEvent.change(await screen.findByRole('combobox', { name: 'Language' }), { target: { value: 'pt-BR' } })
+    expect(screen.getByRole('link', { name: 'Good Table — Comida fresca, boas vibrações' })).toBeTruthy()
     fireEvent.change(await screen.findByRole('combobox', { name: 'Tamanho' }), { target: { value: 'large' } })
     fireEvent.click(screen.getByRole('checkbox', { name: /Leite de aveia/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar Café extraído a frio' }))
@@ -277,7 +293,7 @@ describe('checkout client acceptance criteria', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Continue to place order' }))
     fireEvent.click(await screen.findByRole('button', { name: /Place demo order/i }))
     expect(await screen.findByRole('heading', { name: 'That’s a good choice.' })).toBeTruthy()
-    expect(sessionStorage.getItem('goodtable.attempt.v1')).toBeNull()
+    await waitFor(() => expect(sessionStorage.getItem('goodtable.attempt.v1')).toBeNull())
   })
 
   it('AC-Y3 locks payment synchronously so a double tap submits exactly one order', async () => {
@@ -344,6 +360,7 @@ describe('checkout client acceptance criteria', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Place demo order/i }))
     expect(await screen.findByRole('heading', { name: 'That’s a good choice.' })).toBeTruthy()
     expect(screen.getByText('8')).toBeTruthy()
+    expect(screen.getByText('PUBLIC-REF-123', { exact: true })).toBeTruthy()
     expect(screen.getAllByText('$5.00').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText(/Garden sandwich/)).toBeTruthy()
     expect(screen.getByTitle('Scan for pickup reference and total')).toBeTruthy()

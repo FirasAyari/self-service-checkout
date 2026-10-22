@@ -15,6 +15,15 @@ const fallbackPhotoByCategory: Record<string, string> = {
   Drinks: '/images/menu/lemonade.jpg',
 }
 
+export function createReceiptQrValue(order: Pick<OrderStatus, 'publicReference' | 'pickupNumber' | 'totalCents'>, currency: string): string {
+  return JSON.stringify({
+    receiptVersion: 1,
+    reference: order.publicReference.toUpperCase(),
+    pickupNumber: order.pickupNumber,
+    totalCents: order.totalCents,
+    currency,
+  })
+}
 
 export function MenuCard({ item, quantity, optionIds, index, language, copy, getDisabledReason, onChange }: {
   item: MenuItem; quantity: number; optionIds: string[]; index: number; language: Language; copy: Copy
@@ -141,13 +150,7 @@ export function CompleteScreen({ order, quote, language, copy, onRetry, onNewOrd
   const orderMessage = paid ? copy.orderPaidMessage : copy.orderDeclinedMessage
   const receiptLines: OrderLine[] = order.lines.length > 0 ? order.lines : quote?.lines ?? []
   const currency = order.currency || quote?.currency || 'USD'
-  const receiptQrValue = JSON.stringify({
-    receiptVersion: 1,
-    reference: order.publicReference.slice(0, 8).toUpperCase(),
-    pickupNumber: order.pickupNumber,
-    totalCents: order.totalCents,
-    currency,
-  })
+  const receiptQrValue = createReceiptQrValue(order, currency)
   useEffect(() => {
     if (!paid) return
     const timer = window.setInterval(() => setSeconds((current) => {
@@ -161,7 +164,7 @@ export function CompleteScreen({ order, quote, language, copy, onRetry, onNewOrd
     <h1 id="complete-title" tabIndex={-1}>{paid ? copy.goodChoice : copy.tryAgain}</h1><p>{orderMessage}</p>
     {paid && order.pickupNumber !== null && <div className="pickup-card"><span>{copy.pickup}</span><strong>{order.pickupNumber}</strong><small>{copy.pickupHint}</small></div>}
     {paid && <>
-      <p className="reference-note">{copy.reference} <strong>{order.publicReference.slice(0, 8).toUpperCase()}</strong></p>
+      <p className="reference-note">{copy.reference} <strong>{order.publicReference.toUpperCase()}</strong></p>
       {receiptLines.length > 0 && <div className="receipt-card" id="print-receipt"><h2>{copy.receipt}</h2><ul>{receiptLines.map((line) => <li key={line.itemId}><span>{line.quantity} × {localizedMenuText(line.name, language)}</span><strong>{formatMoney(line.lineTotalCents, currency, language)}</strong></li>)}</ul>
         <div className="receipt-row"><span>{copy.tax}</span><strong>{formatMoney(order.taxCents, currency, language)}</strong></div>
         <div className="receipt-row receipt-total"><span>{copy.totalIncluded}</span><strong>{formatMoney(order.totalCents, currency, language)}</strong></div>

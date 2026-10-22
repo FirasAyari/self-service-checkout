@@ -96,7 +96,7 @@ export function App() {
     <div className="app-shell">
       <a className="skip-link" href="#top">{copy.skipToMain}</a>
       <header className="topbar">
-        <a className="brand" href="#top" aria-label="Good Table — Fresh food, good vibes">
+        <a className="brand" href="#top" aria-label={copy.brandLabel}>
           <img className="brand-mark" src="/goodtable-mark.png" alt="" />
           <span className="brand-wordmark">good table</span>
         </a>

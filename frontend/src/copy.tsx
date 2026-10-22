@@ -2,6 +2,7 @@ export type Language = 'en' | 'pt-BR'
 
 export const messages = {
   en: {
+    brandLabel: 'Good Table — Fresh food, good vibes',
     tagline: 'FRESH · MADE HERE', service: 'Order at the counter', serviceShort: 'Counter', step: (step: number) => `Step ${step} of three`,
     madeFresh: 'MADE FRESH, JUST FOR YOU', hero: <>A little good<br />goes a <em>long way.</em></>,
     heroDescription: 'Simple ingredients. Big lunch energy. Find your favorite and we’ll make it fresh.', readyTime: 'Ready in about 10 minutes',
@@ -44,6 +45,7 @@ export const messages = {
     paymentRateLimited: 'The order could not be submitted because requests are temporarily limited.', retryCountdown: (n: number) => `You can try again in ${n} seconds.`,
   },
   'pt-BR': {
+    brandLabel: 'Good Table — Comida fresca, boas vibrações',
     tagline: 'FRESCO · FEITO AQUI', service: 'Peça no balcão', serviceShort: 'Balcão', step: (step: number) => `Etapa ${step} de três`,
     madeFresh: 'FEITO NA HORA PARA VOCÊ', hero: <>Um pouco de sabor<br />faz toda a <em>diferença.</em></>,
     heroDescription: 'Ingredientes simples, um ótimo almoço. Escolha seu favorito e preparamos na hora.', readyTime: 'Pronto em cerca de 10 minutos',

@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 const itemId = 'garden-sandwich'
+const publicReference = 'A1B2C3D4E5F60718293A4B5C6D7E8F90'
 
 function catalog(priceCents = 800, stock = 5) {
   return {
@@ -15,7 +16,7 @@ function catalog(priceCents = 800, stock = 5) {
 
 function makeOrder(status: 'PAID' | 'PAYMENT_FAILED' | 'PENDING_PAYMENT', quantity = 1, priceCents = 800) {
   return {
-    publicReference: 'PUBLIC-REF-123', status, pickupNumber: status === 'PAID' ? 8 : null,
+    publicReference, status, pickupNumber: status === 'PAID' ? 8 : null,
     updatedAtUtc: '2026-10-20T00:00:00Z', message: status === 'PAID' ? 'Order confirmed.' : status === 'PAYMENT_FAILED' ? 'Payment was not recorded.' : 'Payment is still being confirmed.',
     lines: [{ itemId, name: 'Garden sandwich', quantity, unitPriceCents: priceCents, lineTotalCents: priceCents * quantity, optionIds: [] }],
     totalCents: priceCents * quantity, taxCents: Math.round(priceCents * quantity * 0.08), currency: 'USD',
@@ -134,7 +135,7 @@ test('AC-M6 / AC-R6 selected cold-brew options are quoted, confirmed, and includ
       totalCents: 600, taxCents: 44, currency: 'USD' } })
   })
   await page.route('**/api/orders', (route) => route.fulfill({ status: 201, json: { order: {
-    publicReference: 'PUBLIC-REF-123', status: 'PAID', pickupNumber: 8, updatedAtUtc: '2026-10-20T00:00:00Z', message: 'Order confirmed.',
+    publicReference, status: 'PAID', pickupNumber: 8, updatedAtUtc: '2026-10-20T00:00:00Z', message: 'Order confirmed.',
     lines: [{ itemId: 'cold-brew', name: 'Cold brew (Large, Oat milk)', quantity: 1, unitPriceCents: 600, lineTotalCents: 600 }],
     totalCents: 600, taxCents: 44, currency: 'USD',
   } } }))
@@ -173,6 +174,12 @@ test('AC-Y4 / AC-O1 / AC-O5 / AC-R1 approval shows the server quote and prints t
   await expect(page.locator('.receipt-total strong')).toHaveText('$8.00')
   await expect(page.getByRole('status').filter({ hasText: 'This screen clears in 30 seconds' })).toBeVisible()
   expect(Number(await page.locator('.pickup-card strong').evaluate((element) => getComputedStyle(element).fontSize.replace('px', '')))).toBeGreaterThanOrEqual(96)
+  await page.setViewportSize({ width: 390, height: 844 })
+  const reference = page.getByText(publicReference, { exact: true })
+  await expect(reference).toBeVisible()
+  const referenceBounds = await reference.boundingBox()
+  expect(referenceBounds).not.toBeNull()
+  expect(referenceBounds!.x + referenceBounds!.width).toBeLessThanOrEqual(390)
   expect(api.paymentAttempts).toBe(1)
   await page.evaluate(() => { window.print = () => { document.body.dataset.printCalled = 'true' } })
   await page.getByRole('button', { name: 'Print receipt' }).click()
@@ -263,7 +270,7 @@ test('AC-Y6 / AC-K2 a payment with no ledger result stays pending after 30 secon
   expect(api.statusPolls).toBeGreaterThanOrEqual(1)
 })
 
-test('SC-E2 AC-Y3 a slow API shows progress and duplicate taps create one request with one idempotency key', async ({ page }) => {
+test('SC-E2 SC-D14 AC-Y3 a slow API shows progress and duplicate taps create one request with one idempotency key', async ({ page }) => {
   let releaseOrder!: () => void
   const orderGate = new Promise<void>((resolve) => { releaseOrder = resolve })
   const api = await mockCheckoutApi(page, { orderGate })
@@ -712,7 +719,7 @@ test('AC-K5 labels, announcements, focus order, dialogs, and every checkout stat
   await expectNoSevereAxeViolations(page)
 })
 
-test('AC-K3 confirmation countdown clears the paid receipt and browser Back cannot reveal the prior order', async ({ page }) => {
+test('AC-K3 SC-F3 confirmation countdown clears the paid receipt and browser Back cannot reveal the prior order', async ({ page }) => {
   await page.clock.install()
   await mockCheckoutApi(page)
   await addOneAndReview(page)
